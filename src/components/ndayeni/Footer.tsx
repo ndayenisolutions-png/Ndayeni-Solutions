@@ -60,9 +60,9 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-text-muted text-sm leading-relaxed mb-4">
-              Seamless Solutions, Limitless Possibilities. Your trusted
-              technology partner for small businesses &amp; homes across South
-              Africa.
+              Seamless Solutions, Limitless Possibilities. Based in Midrand and
+              servicing clients nationwide — with Gauteng, Mpumalanga &amp; KZN
+              as our core areas.
             </p>
             <div className="space-y-1">
               <a

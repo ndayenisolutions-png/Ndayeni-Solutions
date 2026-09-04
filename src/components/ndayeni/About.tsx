@@ -218,11 +218,13 @@ export default function About() {
               network, your CCTV and your website — without the jargon.
             </p>
             <p className="text-text-muted text-sm sm:text-base leading-relaxed mb-6">
-              Based in Kaalfontein, Midrand, we work with small businesses,
-              shops, offices, NGOs, schools and home users across South Africa.
-              We&apos;re founder-led and hands-on — we show up, we fix it, and
-              we explain it in plain language. As we grow, our team grows, but
-              the commitment to practical, affordable technology stays the same.
+              Based in Kaalfontein, Midrand, we service clients nationwide —
+              with Gauteng, Mpumalanga and KwaZulu-Natal making up the bulk of
+              our work. We work with small businesses, shops, offices, NGOs,
+              schools and home users. We&apos;re founder-led and hands-on — we
+              show up, we fix it, and we explain it in plain language. As we
+              grow, our team grows, but the commitment to practical, affordable
+              technology stays the same.
             </p>
 
             {/* Values Grid */}

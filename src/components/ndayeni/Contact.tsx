@@ -327,12 +327,13 @@ export default function Contact() {
               <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                 <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-brand" />
                 <span className="text-warm-white font-semibold text-xs sm:text-sm">
-                  Serving clients nationwide
+                  Based in Midrand · Servicing nationwide
                 </span>
               </div>
               <p className="text-text-muted text-xs sm:text-sm leading-relaxed">
-                Based in Midrand and working with homes and small businesses
-                across all nine provinces. Every enquiry starts with a free
+                Our office is in Kaalfontein, Midrand — but we service clients
+                across South Africa, with <span className="text-warm-white font-medium">Gauteng, Mpumalanga and KwaZulu-Natal</span> making
+                up the bulk of our work. Every enquiry starts with a free
                 15-minute scoping call — if we&apos;re not the right fit,
                 we&apos;ll tell you who is.
               </p>
