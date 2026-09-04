@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useScroll, useTransform, motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import {
@@ -62,6 +62,24 @@ export default function Hero() {
   const trustRef = useRef<HTMLDivElement>(null);
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
 
+  // 3D scene is heavy on iOS / mobile Safari (slow WebGL init, large
+  // three.js bundle). Detect mobile/tablet via a resize matchMedia listener
+  // and skip the 3D scene there — the static background image + gradients
+  // look great on their own. This makes the hero load near-instantly on iOS.
+  const [show3D, setShow3D] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    // Also exclude touch devices (iOS/iPad) which choke on WebGL.
+    const update = () => {
+      const isTouch = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      setShow3D(mq.matches && !isTouch);
+    };
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end start"],
@@ -114,10 +132,11 @@ export default function Hero() {
       ref={containerRef}
       className="relative min-h-screen flex items-center overflow-hidden"
     >
-      {/* 3D WebGL Background */}
-      <HeroScene />
+      {/* 3D WebGL Background — desktop only (skipped on mobile/iOS for performance) */}
+      {show3D && <HeroScene />}
 
-      {/* Background image (behind 3D scene) */}
+      {/* Background image (visible on mobile where 3D scene is skipped;
+           subtler on desktop where 3D scene overlays it) */}
       <div
         aria-hidden="true"
         className="absolute inset-0 z-0 pointer-events-none"
@@ -125,7 +144,7 @@ export default function Hero() {
           backgroundImage: `url(${sectionImages.abstract})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          opacity: 0.25,
+          opacity: show3D ? 0.25 : 0.45,
         }}
       />
 
