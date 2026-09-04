@@ -144,3 +144,30 @@ Stage Summary:
 - Middle "Business" card visually elevated: persistent border-brand/40, glow-brand box-shadow, lg:scale-[1.03], "Most Popular" Badge floating at top edge.
 - Prices intentionally omitted — only "Pricing on request / Based on your setup & number of devices".
 - Ready to be imported into src/app/page.tsx (e.g. <CarePlans /> between Services and About, or wherever the layout calls for it). Not yet wired into page.tsx — that integration step is out of scope for this rebuild task.
+
+---
+Task ID: REBUILD-ALL
+Agent: main
+Task: Full rebuild after environment reset. Redo ALL changes up to the last working point, including images and SMTP. Set up safeguards to prevent future loss.
+
+Work Log:
+- Confirmed environment had reset to original migration state (Sep 2) — all today's work gone (components, images, .env, worklog entries)
+- Launched 3 parallel subagents to recreate WhyNdayeni, BusinessSolutions, CarePlans components
+- Directly rewrote: Navbar (nav links + Request a Quote CTA + z-[60] mobile fix + removed stuck GSAP animation + pointerEvents fix), Hero (two-column layout with What We Handle panel + trust badges), Services (8 services in 3 category accordions, single-open, image header cards), About (grounded founder story + 4-step process Assess/Recommend/Install/Support + updated stats/values), Contact (smart form with customerType radio incl Home/Individual + 10 interest checkboxes), Footer (updated service links + tagline), layout.tsx (metadata + JSON-LD + phone 083 800 6989), page.tsx (new section order, no Projects)
+- Added CSS utilities to globals.css: .section-bg-image, .section-bg-overlay, .card-image-header (visible image band)
+- Added .text-gradient-teal class (was missing from original, caused invisible hero text)
+- Searched 12 image categories via z-ai image-search, downloaded candidates, VLM-verified EACH image for watermarks
+- Found that even "Unsplash"-sourced images sometimes carry "Unsplash+" premium watermark — verified each individually
+- Final 13 VLM-confirmed watermark-free images: abstract, cctv, repairs, network, techhelp, techtheme, workspace, printer, webdesign, graphicdesign, training, office, home
+- Created src/lib/section-images.ts config pointing all components to verified clean images
+- Integrated images: Hero bg (abstract), WhyNdayeni bg (techhelp), Services category headers + 8 service cards (image header bands), BusinessSolutions 3 cards (office/itsupport/home), CarePlans bg (itsupport), About bg (techtheme), Contact bg (workspace)
+- Re-setup SMTP .env: mail.ndayenisolutions.co.za:587 (the ACTUAL mail server, not smtp.afrihost.co.za which refused STARTTLS). Tested live: mode=production, email sent attempt 1, delivered to info@ndayenisolutions.co.za
+- SAFEGUARD: git rm --cached .env (untrack credentials), confirmed .env in .gitignore, git add -A + commit (85a57ae). .env file remains on disk (perms 600) but is NOT tracked by git — credentials protected
+- Agent Browser verification:
+  - Desktop 1440px: 0 errors, all 7 sections (home/why/services/solutions/care-plans/about/contact), all headings correct, phone 083 800 6989, 11 card images + 5 bg images all loaded ✓
+  - Mobile 390px: navbar at top:0 (visible), burger opens + closes via X, contact radio "Home/Individual" label ✓
+  - SMTP: live test returned {"ok":true,"mode":"production"}, email delivered ✓
+
+Stage Summary:
+- FULL REBUILD COMPLETE. Everything from the lost session is restored: 15 recommendations, Services accordion, Hero two-column, mobile menu fix, 13 VLM-verified watermark-free images, smart contact form, SMTP email delivery (production mode confirmed).
+- SAFEGUARD IN PLACE: All work committed to git (commit 85a57ae). .env untracked + gitignored (credentials protected). A future environment reset can be recovered with `git checkout .` or `git reset --hard 85a57ae`.
