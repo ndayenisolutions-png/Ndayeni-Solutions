@@ -18,22 +18,25 @@ const siteUrl = "https://ndayenisolutions.co.za";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Ndayeni Solutions | Reliable IT & Web Solutions in Midrand",
+    default: "Ndayeni Solutions | Technology Solutions for Small Businesses & Homes",
     template: "%s | Ndayeni Solutions",
   },
   description:
-    "Midrand-based IT and web partner serving clients across South Africa. We design fast websites, manage IT infrastructure, and fix the tech that keeps your business running — wherever you are.",
+    "Midrand-based technology partner for small businesses and homes across South Africa. We set up, maintain and manage computers, networks, Wi-Fi, CCTV, printers, websites and ongoing IT support.",
   keywords: [
     "Ndayeni Solutions",
-    "IT Solutions Midrand",
-    "Web Design South Africa",
-    "SEO Services",
-    "Graphic Design",
-    "IT Support South Africa",
+    "Technology Solutions South Africa",
+    "IT Support Midrand",
     "Computer Repairs Midrand",
+    "Networking & Wi-Fi",
+    "CCTV Installation",
+    "Printer & Office Technology",
+    "Web Design South Africa",
+    "Small Business IT Support",
+    "IT Outsourcing South Africa",
     "Kaalfontein IT",
     "Digital Skills Training",
-    "IT Outsourcing South Africa",
+    "Computer Systems Engineer",
   ],
   authors: [{ name: "Ndayeni Solutions Pty Ltd" }],
   creator: "Ndayeni Solutions Pty Ltd",
@@ -48,9 +51,9 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "Ndayeni Solutions | Reliable IT & Web Solutions",
+    title: "Ndayeni Solutions | Technology Solutions for Small Businesses & Homes",
     description:
-      "Seamless Solutions, Limitless Possibilities. Midrand-based IT and web partner serving homes and businesses across South Africa.",
+      "Seamless Solutions, Limitless Possibilities. Midrand-based technology partner setting up, maintaining and supporting the technology small businesses and homes rely on.",
     url: siteUrl,
     siteName: "Ndayeni Solutions",
     locale: "en_ZA",
@@ -60,15 +63,15 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Ndayeni Solutions — Reliable IT & Web Solutions in Midrand",
+        alt: "Ndayeni Solutions — Technology Solutions for Small Businesses & Homes",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ndayeni Solutions | Reliable IT & Web Solutions",
+    title: "Ndayeni Solutions | Technology Solutions for Small Businesses & Homes",
     description:
-      "Seamless Solutions, Limitless Possibilities. Midrand-based IT and web partner serving homes and businesses across South Africa.",
+      "Seamless Solutions, Limitless Possibilities. Midrand-based technology partner setting up, maintaining and supporting the technology small businesses and homes rely on.",
     images: ["/og-image.png"],
   },
   robots: {
@@ -92,12 +95,14 @@ export const viewport: Viewport = {
 };
 
 const serviceNames = [
-  { title: "Web Design & SEO", description: "Stunning, responsive websites optimized for search engines. We build digital experiences that convert visitors into customers." },
-  { title: "IT Outsourcing", description: "Scalable IT infrastructure management. Let us handle your technology needs so you can focus on growing your business." },
-  { title: "IT Technical Support", description: "24/7 expert support for all your tech challenges. Remote and on-site solutions to keep your operations running smoothly." },
-  { title: "Graphic Design", description: "Eye-catching visual identities and marketing materials. From logos to brand guidelines, we bring your vision to life." },
-  { title: "Computer Repairs", description: "Fast, reliable hardware and software repairs. We diagnose and fix issues to get your systems back up and running." },
-  { title: "Digital Skills Training", description: "Empowering individuals and teams with essential digital literacy. Customized training programs for all skill levels." },
+  { title: "IT Support & Outsourcing", description: "Ongoing IT support, maintenance and outsourcing for small businesses, shops, offices, NGOs and schools — on-site and remote." },
+  { title: "Computer Repairs & Hardware", description: "Fast, reliable hardware and software repairs for laptops, desktops and peripherals. Honest diagnosis, quote before we fix." },
+  { title: "Networking & Wi-Fi", description: "From a single Wi-Fi router to a full Cat6 office network with managed switches and access points — designed, cabled and installed." },
+  { title: "CCTV & Security Technology", description: "Professionally installed CCTV systems with NVRs, remote viewing and night vision, configured for mobile monitoring." },
+  { title: "Printer & Office Technology", description: "Printers, scanners, copiers and the office tech that keeps a workspace moving — supplied, set up, maintained and repaired." },
+  { title: "Web Design & Digital Presence", description: "Fast, responsive websites optimized for search, plus business email, Google profile and online listings setup." },
+  { title: "Graphic Design & Branding", description: "Logos, brand systems and marketing materials that hold together across every touchpoint." },
+  { title: "Digital Skills Training", description: "Practical, hands-on digital literacy for individuals and teams — from basic computer skills to productivity tools." },
 ];
 
 const servicesJsonLd = serviceNames.map((s) => ({
@@ -118,9 +123,9 @@ const jsonLd = {
   "@type": "ProfessionalService",
   name: "Ndayeni Solutions Pty Ltd",
   description:
-    "Midrand-based IT and web partner serving clients across South Africa. Web design, SEO, IT outsourcing, technical support, graphic design, computer repairs, and digital skills training.",
+    "Midrand-based technology partner for small businesses and homes across South Africa. IT support, computer repairs, networking & Wi-Fi, CCTV & security, printer & office technology, web design, graphic design, and digital skills training.",
   url: siteUrl,
-  telephone: "+27-63-118-8354",
+  telephone: "+27-83-800-6989",
   email: "info@ndayenisolutions.co.za",
   image: `${siteUrl}/og-image.png`,
   address: {
@@ -150,13 +155,15 @@ const jsonLd = {
     jobTitle: "Founder & Computer Systems Engineer",
   },
   knowsAbout: [
-    "Web Design & SEO",
-    "IT Outsourcing",
-    "IT Technical Support",
-    "Graphic Design",
-    "Computer Repairs",
+    "IT Support & Outsourcing",
+    "Computer Repairs & Hardware",
+    "Networking & Wi-Fi",
+    "CCTV & Security Technology",
+    "Printer & Office Technology",
+    "Web Design & Digital Presence",
+    "Graphic Design & Branding",
     "Digital Skills Training",
-    "IT Infrastructure Management",
+    "Small Business Technology",
   ],
   openingHours: "Mo-Fr 08:00-17:00",
   priceRange: "$$",

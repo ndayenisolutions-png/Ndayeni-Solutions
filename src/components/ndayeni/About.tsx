@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { Shield, Award, Users, Clock, ArrowRight, Cpu, Code2, Rocket } from "lucide-react";
+import { Shield, Award, Users, MapPin, ArrowRight, Cpu, Wrench, LifeBuoy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { sectionImages } from "@/lib/section-images";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -48,25 +49,26 @@ function AnimatedCounter({ target, suffix = "" }: {
 }
 
 const stats = [
-  { icon: Users, value: 100, suffix: "+", label: "Happy Clients", color: "text-brand", bg: "from-brand to-brand-light" },
+  { icon: Users, value: 100, suffix: "+", label: "Clients Served", color: "text-brand", bg: "from-brand to-brand-light" },
   { icon: Shield, value: 500, suffix: "+", label: "Issues Resolved", color: "text-accent", bg: "from-accent to-cyan-400" },
   { icon: Award, value: 50, suffix: "+", label: "Projects Delivered", color: "text-brand-light", bg: "from-brand-light to-yellow-400" },
-  { icon: Clock, value: 24, suffix: "/7", label: "Support Available", color: "text-brand", bg: "from-brand to-accent" },
+  { icon: MapPin, value: 9, suffix: "", label: "Provinces Served", color: "text-brand", bg: "from-brand to-accent" },
 ];
 
 const values = [
-  { text: "Reliable & trustworthy IT partnerships", icon: Shield },
-  { text: "Cutting-edge technology solutions", icon: Cpu },
+  { text: "Reliable & trustworthy technology partnerships", icon: Shield },
+  { text: "Practical, budget-conscious solutions", icon: Wrench },
   { text: "Client-first approach to every project", icon: Users },
-  { text: "Affordable pricing for all business sizes", icon: Award },
-  { text: "Expert team with industry certifications", icon: Code2 },
-  { text: "Quick turnaround & dedicated support", icon: Rocket },
+  { text: "Affordable technology for homes & small businesses", icon: Award },
+  { text: "Founder-led technical support", icon: Cpu },
+  { text: "Local, hands-on assistance when you need it", icon: LifeBuoy },
 ];
 
 const processSteps = [
-  { step: "01", title: "Discover", desc: "We analyze your needs and challenges" },
-  { step: "02", title: "Design", desc: "We craft tailored solutions" },
-  { step: "03", title: "Deliver", desc: "We implement and support" },
+  { step: "01", title: "Assess", desc: "We understand your technology needs" },
+  { step: "02", title: "Recommend", desc: "We recommend practical solutions based on your budget" },
+  { step: "03", title: "Install", desc: "We supply, configure & install the technology" },
+  { step: "04", title: "Support", desc: "We maintain your systems & provide ongoing help" },
 ];
 
 export default function About() {
@@ -170,7 +172,16 @@ export default function About() {
     <section id="about" className="relative py-12 sm:py-20 md:py-28" ref={sectionRef}>
       {/* Background */}
       <div className="absolute inset-0" aria-hidden="true">
-        <div className="absolute inset-0 bg-gradient-to-b from-dark-deep via-dark-surface/30 to-dark-deep" />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(${sectionImages.techtheme})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            opacity: 0.3,
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-dark-deep/55 via-dark-deep/60 to-dark-deep/70" />
         <div className="absolute top-1/2 left-1/4 w-[400px] sm:w-[600px] h-[400px] sm:h-[600px] bg-brand/4 rounded-full blur-[150px]" />
         <div className="absolute bottom-1/4 right-1/4 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-accent/3 rounded-full blur-[120px]" />
       </div>
@@ -199,13 +210,19 @@ export default function About() {
               <span>Technology Should </span>
               <span className="text-gradient-brand">Empower</span>, Not Frustrate.
             </h3>
+            <p className="text-text-muted text-sm sm:text-base leading-relaxed mb-4">
+              Ndayeni Solutions was founded in 2023 by Nhlakanipho Ntshangase,
+              a qualified Computer Systems Engineer who saw firsthand how hard
+              it is for small businesses and homes to find affordable, reliable
+              technology help. One provider who can handle your computers, your
+              network, your CCTV and your website — without the jargon.
+            </p>
             <p className="text-text-muted text-sm sm:text-base leading-relaxed mb-6">
-              Founded in 2023 by Nhlakanipho Ntshangase, a qualified Computer
-              Systems Engineer, we work with homes, small businesses, and NGOs
-              across South Africa — building websites, managing IT, and fixing
-              the things that break. Based in Kaalfontein, Midrand, we are
-              dedicated to delivering reliable and innovative IT solutions with
-              cutting-edge technology services and expert support.
+              Based in Kaalfontein, Midrand, we work with small businesses,
+              shops, offices, NGOs, schools and home users across South Africa.
+              We&apos;re founder-led and hands-on — we show up, we fix it, and
+              we explain it in plain language. As we grow, our team grows, but
+              the commitment to practical, affordable technology stays the same.
             </p>
 
             {/* Values Grid */}
@@ -223,7 +240,7 @@ export default function About() {
 
             <a href="#contact">
               <Button className="bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-xl hover:shadow-brand/25 transition-all duration-500 font-semibold px-6 sm:px-8 py-4 sm:py-5 text-sm sm:text-base rounded-full group">
-                Work With Us
+                Request a Quote
                 <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </a>
@@ -266,7 +283,7 @@ export default function About() {
                 </div>
 
                 {/* Process Steps */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6 sm:mb-8">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6 sm:mb-8">
                   {processSteps.map((step) => (
                     <div
                       key={step.step}
@@ -274,7 +291,7 @@ export default function About() {
                     >
                       <div className="text-brand text-[10px] sm:text-xs font-bold mb-0.5 sm:mb-1">{step.step}</div>
                       <div className="text-warm-white text-xs sm:text-sm font-semibold">{step.title}</div>
-                      <div className="text-text-muted text-[9px] sm:text-[11px]">{step.desc}</div>
+                      <div className="text-text-muted text-[9px] sm:text-[11px] leading-tight mt-0.5">{step.desc}</div>
                     </div>
                   ))}
                 </div>
@@ -296,7 +313,7 @@ export default function About() {
                       <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent" />
                     </div>
                     <div>
-                      <div className="text-warm-white text-[10px] sm:text-xs font-medium">Web & IT</div>
+                      <div className="text-warm-white text-[10px] sm:text-xs font-medium">Technology</div>
                       <div className="text-text-muted text-[8px] sm:text-[10px]">Specialization</div>
                     </div>
                   </div>

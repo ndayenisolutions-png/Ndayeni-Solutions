@@ -10,12 +10,16 @@ import {
   Zap,
   Check,
   ShieldCheck,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { sectionImages } from "@/lib/section-images";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -25,9 +29,9 @@ const contactInfo = [
   {
     icon: Phone,
     label: "Call Us",
-    value: "063 118 8354",
+    value: "083 800 6989",
     sub: "",
-    href: "tel:0631188354",
+    href: "tel:0838006989",
     color: "text-brand",
     bg: "bg-brand/10",
     hoverBg: "hover:bg-brand/15",
@@ -68,14 +72,23 @@ const contactInfo = [
   },
 ];
 
-const serviceOptions = [
-  "Web Design & SEO",
-  "IT Outsourcing",
-  "IT Technical Support",
-  "Graphic Design",
-  "Computer Repairs",
-  "Digital Skills Training",
-  "Something else",
+const interestOptions = [
+  "Computer repair",
+  "Hardware upgrade",
+  "Networking / Wi-Fi",
+  "CCTV & security",
+  "Printer / office equipment",
+  "IT support",
+  "Website",
+  "Graphic design",
+  "Training",
+  "Other",
+];
+
+const customerTypes = [
+  { value: "Business", label: "Business" },
+  { value: "Home/individual", label: "Home/Individual" },
+  { value: "Organisation", label: "Organisation (NGO / School)" },
 ];
 
 export default function Contact() {
@@ -83,7 +96,8 @@ export default function Contact() {
     name: "",
     email: "",
     phone: "",
-    service: "",
+    customerType: "",
+    interests: [] as string[],
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,17 +111,14 @@ export default function Contact() {
   const leftColRef = useRef<HTMLDivElement>(null);
   const rightColRef = useRef<HTMLDivElement>(null);
 
-  // Load reCAPTCHA v3 script
   useEffect(() => {
     if (typeof window === "undefined") return;
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
     if (!siteKey) {
-      // No key configured — skip reCAPTCHA
       setRecaptchaReady(true);
       return;
     }
 
-    // Avoid double-loading
     if (window.grecaptcha) {
       setRecaptchaReady(true);
       return;
@@ -120,12 +131,11 @@ export default function Contact() {
     script.onload = () => setRecaptchaReady(true);
     script.onerror = () => {
       console.warn("[contact] reCAPTCHA script failed to load — proceeding without it");
-      setRecaptchaReady(true); // Don't block the form
+      setRecaptchaReady(true);
     };
     document.head.appendChild(script);
   }, []);
 
-  // GSAP section header animation
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
@@ -142,7 +152,6 @@ export default function Contact() {
     return () => { trigger.kill(); };
   }, []);
 
-  // GSAP left column animation
   useEffect(() => {
     const el = leftColRef.current;
     if (!el) return;
@@ -165,7 +174,6 @@ export default function Contact() {
     return () => { trigger.kill(); };
   }, []);
 
-  // GSAP right column animation
   useEffect(() => {
     const el = rightColRef.current;
     if (!el) return;
@@ -182,6 +190,15 @@ export default function Contact() {
     return () => { trigger.kill(); };
   }, []);
 
+  const toggleInterest = (interest: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      interests: prev.interests.includes(interest)
+        ? prev.interests.filter((i) => i !== interest)
+        : [...prev.interests, interest],
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -189,7 +206,6 @@ export default function Contact() {
     setPreviewUrl(null);
 
     try {
-      // Get reCAPTCHA token if available
       let recaptchaToken = "";
       const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
       if (siteKey && typeof window !== "undefined" && window.grecaptcha?.execute) {
@@ -217,7 +233,7 @@ export default function Contact() {
       if (typeof data.previewUrl === "string") {
         setPreviewUrl(data.previewUrl);
       }
-      setFormData({ name: "", email: "", phone: "", service: "", message: "" });
+      setFormData({ name: "", email: "", phone: "", customerType: "", interests: [], message: "" });
       setTimeout(() => {
         setSubmitted(false);
         setPreviewUrl(null);
@@ -237,6 +253,12 @@ export default function Contact() {
     <section id="contact" className="relative py-12 sm:py-20 md:py-28" ref={sectionRef}>
       {/* Background */}
       <div className="absolute inset-0 mesh-gradient" aria-hidden="true" />
+      <div
+        aria-hidden="true"
+        className="section-bg-image"
+        style={{ backgroundImage: `url(${sectionImages.workspace})` }}
+      />
+      <div className="absolute inset-0 section-bg-overlay" aria-hidden="true" style={{ zIndex: 0 }} />
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" aria-hidden="true" />
 
       {/* Decorative orbs */}
@@ -254,12 +276,13 @@ export default function Contact() {
             Get In Touch
           </span>
           <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-6">
-            <span className="text-warm-white">Let&apos;s Build </span>
-            <span className="text-gradient-brand">Together</span>
+            <span className="text-warm-white">Request a </span>
+            <span className="text-gradient-brand">Quote</span>
           </h2>
           <p className="text-text-muted text-sm sm:text-lg max-w-2xl mx-auto px-2 sm:px-0">
-            Ready to transform your digital presence? Get in touch and let&apos;s
-            discuss how we can help your business thrive.
+            Tell us what technology problem you&apos;re trying to solve. We&apos;ll
+            figure out the rest — and get back to you with practical options and
+            a clear quote.
           </p>
         </div>
 
@@ -308,10 +331,10 @@ export default function Contact() {
                 </span>
               </div>
               <p className="text-text-muted text-xs sm:text-sm leading-relaxed">
-                Based in Midrand and working with homes and businesses across
-                all nine provinces. Every enquiry starts with a free 15-minute
-                scoping call — if we&apos;re not the right fit, we&apos;ll tell
-                you who is.
+                Based in Midrand and working with homes and small businesses
+                across all nine provinces. Every enquiry starts with a free
+                15-minute scoping call — if we&apos;re not the right fit,
+                we&apos;ll tell you who is.
               </p>
             </div>
           </div>
@@ -326,6 +349,7 @@ export default function Contact() {
               {/* Animated border glow */}
               <div aria-hidden="true" className="absolute inset-0 rounded-2xl border-glow-animate pointer-events-none" />
 
+              {/* Name + Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 mb-4 sm:mb-5">
                 <div>
                   <label className="text-text-muted text-[10px] sm:text-xs uppercase tracking-wider mb-1.5 sm:mb-2 block">
@@ -358,54 +382,100 @@ export default function Contact() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 mb-4 sm:mb-5">
-                <div>
-                  <label className="text-text-muted text-[10px] sm:text-xs uppercase tracking-wider mb-1.5 sm:mb-2 block">
-                    Phone Number
-                  </label>
-                  <Input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    placeholder="+27 63 118 8354"
-                    className="bg-dark-deep/60 border-dark-border/50 text-warm-white placeholder:text-text-muted/40 focus:border-brand/50 focus:ring-brand/20 h-11 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-text-muted text-[10px] sm:text-xs uppercase tracking-wider mb-1.5 sm:mb-2 block">
-                    Service Needed
-                  </label>
-                  <select
-                    value={formData.service}
-                    onChange={(e) =>
-                      setFormData({ ...formData, service: e.target.value })
-                    }
-                    className="w-full h-11 bg-dark-deep/60 border border-dark-border/50 text-warm-white focus:border-brand/50 focus:ring-brand/20 rounded-md px-3 text-sm outline-none transition-colors cursor-pointer"
-                  >
-                    <option value="" className="bg-dark-deep text-text-muted">
-                      Select a service…
-                    </option>
-                    {serviceOptions.map((opt) => (
-                      <option key={opt} value={opt} className="bg-dark-deep text-warm-white">
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
+              {/* Phone */}
+              <div className="mb-4 sm:mb-5">
+                <label className="text-text-muted text-[10px] sm:text-xs uppercase tracking-wider mb-1.5 sm:mb-2 block">
+                  Phone Number
+                </label>
+                <Input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone: e.target.value })
+                  }
+                  placeholder="+27 83 800 6989"
+                  className="bg-dark-deep/60 border-dark-border/50 text-warm-white placeholder:text-text-muted/40 focus:border-brand/50 focus:ring-brand/20 h-11 text-sm"
+                />
+              </div>
+
+              {/* Customer Type — Radio */}
+              <div className="mb-4 sm:mb-5">
+                <label className="text-text-muted text-[10px] sm:text-xs uppercase tracking-wider mb-2 sm:mb-3 block">
+                  I am a…
+                </label>
+                <RadioGroup
+                  value={formData.customerType}
+                  onValueChange={(val) =>
+                    setFormData({ ...formData, customerType: val })
+                  }
+                  className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3"
+                >
+                  {customerTypes.map((ct) => (
+                    <div
+                      key={ct.value}
+                      className="flex items-center gap-2.5 glass rounded-lg px-3 py-2.5 border border-dark-border/40 hover:border-brand/30 transition-colors cursor-pointer"
+                    >
+                      <RadioGroupItem value={ct.value} id={`ctype-${ct.value}`} />
+                      <Label
+                        htmlFor={`ctype-${ct.value}`}
+                        className="text-warm-white text-xs sm:text-sm font-medium cursor-pointer"
+                      >
+                        {ct.label}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              {/* Interests — Checkboxes */}
+              <div className="mb-4 sm:mb-5">
+                <label className="text-text-muted text-[10px] sm:text-xs uppercase tracking-wider mb-2 sm:mb-3 block">
+                  I&apos;m interested in… <span className="text-text-muted/60 normal-case tracking-normal">(select all that apply)</span>
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
+                  {interestOptions.map((opt) => {
+                    const checked = formData.interests.includes(opt);
+                    return (
+                      <button
+                        type="button"
+                        key={opt}
+                        onClick={() => toggleInterest(opt)}
+                        className={`flex items-center gap-2 rounded-lg px-3 py-2.5 border text-xs sm:text-sm transition-all duration-200 text-left ${
+                          checked
+                            ? "bg-brand/15 border-brand/40 text-warm-white"
+                            : "bg-dark-deep/60 border-dark-border/50 text-text-muted hover:border-brand/30 hover:text-warm-white"
+                        }`}
+                        aria-pressed={checked}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all ${
+                            checked
+                              ? "bg-brand border-brand"
+                              : "border-dark-border"
+                          }`}
+                        >
+                          {checked && (
+                            <Check className="w-3 h-3 text-dark-deep" />
+                          )}
+                        </div>
+                        <span className="leading-tight">{opt}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
+              {/* Message */}
               <div className="mb-5 sm:mb-6">
                 <label className="text-text-muted text-[10px] sm:text-xs uppercase tracking-wider mb-1.5 sm:mb-2 block">
-                  Your Message <span className="text-brand">*</span>
+                  What do you need help with? <span className="text-brand">*</span>
                 </label>
                 <Textarea
                   value={formData.message}
                   onChange={(e) =>
                     setFormData({ ...formData, message: e.target.value })
                   }
-                  placeholder="Tell us about your project or IT needs..."
+                  placeholder="Tell us about the technology problem you're trying to solve — e.g. 'I have a shop and need Wi-Fi, computers and cameras'…"
                   rows={4}
                   required
                   className="bg-dark-deep/60 border-dark-border/50 text-warm-white placeholder:text-text-muted/40 focus:border-brand/50 focus:ring-brand/20 resize-none text-sm"
@@ -455,12 +525,13 @@ export default function Contact() {
                   ) : submitted ? (
                     <>
                       <Check className="w-4 h-4" />
-                      Message sent — we&apos;ll be in touch
+                      Request sent — we&apos;ll be in touch
                     </>
                   ) : (
                     <>
                       <Send className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                      Send Message
+                      Request a Quote
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </>
                   )}
                 </span>

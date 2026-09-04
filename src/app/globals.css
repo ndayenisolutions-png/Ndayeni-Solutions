@@ -297,3 +297,66 @@
   pointer-events: none;
   z-index: 0;
 }
+
+/* Section Background Image — used behind section text.
+   Image at higher opacity with a lighter dark overlay so the
+   photo is clearly visible while text stays readable. */
+.section-bg-image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.section-bg-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(7,21,21,0.55) 0%, rgba(7,21,21,0.65) 100%);
+  pointer-events: none;
+}
+
+.section-bg-overlay-strong {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(7,21,21,0.7) 0%, rgba(7,21,21,0.8) 100%);
+  pointer-events: none;
+}
+
+/* Card image header — a fully visible image band at the top of a card. */
+.card-image-header {
+  position: relative;
+  height: 9rem;
+  overflow: hidden;
+}
+@media (min-width: 640px) {
+  .card-image-header {
+    height: 10rem;
+  }
+}
+.card-image-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(7,21,21,0.1) 0%, rgba(7,21,21,0.15) 40%, rgba(15,31,31,0.95) 100%);
+  pointer-events: none;
+}
+.card-image-header > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.group:hover .card-image-header > img {
+  transform: scale(1.06);
+}
+

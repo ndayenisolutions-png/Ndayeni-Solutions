@@ -13,6 +13,7 @@ if (typeof window !== "undefined") {
 const navLinks = [
   { label: "Home", href: "#home" },
   { label: "Services", href: "#services" },
+  { label: "Solutions", href: "#solutions" },
   { label: "About", href: "#about" },
   { label: "Contact", href: "#contact" },
 ];
@@ -54,16 +55,9 @@ export default function Navbar() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // GSAP entrance animation for header
-  useEffect(() => {
-    if (headerRef.current) {
-      gsap.fromTo(
-        headerRef.current,
-        { y: -100, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" }
-      );
-    }
-  }, []);
+  // Navbar is fixed and visible immediately — no entrance animation.
+  // (Previously a GSAP y:-100→0 slide-down that could get stuck
+  //  partway and push the navbar off-screen on mobile.)
 
   // GSAP animation for mobile menu open/close
   useEffect(() => {
@@ -75,6 +69,7 @@ export default function Navbar() {
     if (isMobileOpen) {
       // Open animation
       menu.style.display = "block";
+      menu.style.pointerEvents = "auto";
       gsap.fromTo(backdrop, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power2.out" });
       gsap.fromTo(
         menu,
@@ -89,7 +84,9 @@ export default function Navbar() {
         { x: 0, opacity: 1, duration: 0.4, stagger: 0.06, delay: 0.15, ease: "power3.out" }
       );
     } else {
-      // Close animation
+      // Immediately disable pointer events so clicks pass through during the
+      // close animation (prevents the menu from "eating" the toggle click).
+      menu.style.pointerEvents = "none";
       const tl = gsap.timeline({
         onComplete: () => {
           if (menu) menu.style.display = "none";
@@ -134,7 +131,7 @@ export default function Navbar() {
         <a
           href="#home"
           onClick={(e) => handleNavClick(e, "#home")}
-          className="flex items-center gap-2 sm:gap-3 group z-50 relative"
+          className="flex items-center gap-2 sm:gap-3 group z-[60] relative"
           style={{ WebkitTapHighlightColor: "transparent" }}
         >
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-brand to-brand-light flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
@@ -165,7 +162,7 @@ export default function Navbar() {
           ))}
           <a href="#contact" onClick={(e) => handleNavClick(e, "#contact")}>
             <Button className="bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-lg hover:shadow-brand/25 transition-all duration-300 font-semibold px-6 rounded-full">
-              Get Started
+              Request a Quote
             </Button>
           </a>
         </nav>
@@ -174,7 +171,7 @@ export default function Navbar() {
         <button
           type="button"
           onClick={() => setIsMobileOpen((v) => !v)}
-          className="md:hidden text-warm-white p-3 -mr-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg active:bg-white/10 z-50 relative"
+          className="md:hidden text-warm-white p-3 -mr-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg active:bg-white/10 z-[60] relative"
           aria-label={isMobileOpen ? "Close menu" : "Open menu"}
           aria-expanded={isMobileOpen}
           aria-controls="mobile-menu"
@@ -228,7 +225,7 @@ export default function Navbar() {
                 }}
               >
                 <Button className="w-full bg-gradient-to-r from-brand to-brand-light text-dark-deep font-semibold rounded-full py-6 text-base">
-                  Get Started
+                  Request a Quote
                 </Button>
               </a>
             </div>
