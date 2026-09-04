@@ -8,6 +8,8 @@ interface ContactPayload {
   name?: string;
   email?: string;
   phone?: string;
+  customerType?: string;
+  interests?: string[];
   service?: string;
   message?: string;
   recaptchaToken?: string;
@@ -133,6 +135,8 @@ export async function POST(req: NextRequest) {
   const name = (body.name || "").trim();
   const email = (body.email || "").trim();
   const phone = (body.phone || "").trim();
+  const customerType = (body.customerType || "").trim();
+  const interests = Array.isArray(body.interests) ? body.interests : [];
   const service = (body.service || "").trim();
   const message = (body.message || "").trim();
 
@@ -247,7 +251,9 @@ export async function POST(req: NextRequest) {
         process.env.SMTP_USER ||
         "info@ndayenisolutions.co.za";
 
-  const subject = service
+  const subject = interests.length > 0
+    ? `New website enquiry: ${interests[0]} — from ${name}`
+    : service
     ? `New website enquiry: ${service} — from ${name}`
     : `New website enquiry from ${name}`;
 
@@ -258,6 +264,8 @@ export async function POST(req: NextRequest) {
     `Name:    ${name}`,
     `Email:   ${email}`,
     phone ? `Phone:   ${phone}` : null,
+    customerType ? `I am a:  ${customerType}` : null,
+    interests.length > 0 ? `Interested in: ${interests.join(", ")}` : null,
     service ? `Service: ${service}` : null,
     ``,
     `Message:`,
@@ -282,6 +290,8 @@ export async function POST(req: NextRequest) {
           <tr><td style="padding: 8px 0; color: #64748b; width: 100px; vertical-align: top;">Name</td><td style="padding: 8px 0; color: #0f172a; font-weight: 600;">${escapeHtml(name)}</td></tr>
           <tr><td style="padding: 8px 0; color: #64748b; vertical-align: top;">Email</td><td style="padding: 8px 0;"><a href="mailto:${escapeHtml(email)}" style="color: #c2410c; text-decoration: none;">${escapeHtml(email)}</a></td></tr>
           ${phone ? `<tr><td style="padding: 8px 0; color: #64748b; vertical-align: top;">Phone</td><td style="padding: 8px 0; color: #0f172a;">${escapeHtml(phone)}</td></tr>` : ""}
+          ${customerType ? `<tr><td style="padding: 8px 0; color: #64748b; vertical-align: top;">I am a</td><td style="padding: 8px 0; color: #0f172a;">${escapeHtml(customerType)}</td></tr>` : ""}
+          ${interests.length > 0 ? `<tr><td style="padding: 8px 0; color: #64748b; vertical-align: top;">Interested in</td><td style="padding: 8px 0; color: #0f172a;">${escapeHtml(interests.join(", "))}</td></tr>` : ""}
           ${service ? `<tr><td style="padding: 8px 0; color: #64748b; vertical-align: top;">Service</td><td style="padding: 8px 0; color: #0f172a;">${escapeHtml(service)}</td></tr>` : ""}
         </table>
         <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
