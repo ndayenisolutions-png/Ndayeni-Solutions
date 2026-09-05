@@ -17,6 +17,7 @@ export const sectionImages = {
   training: "/section-images/training.jpg",
   office: "/section-images/office.jpg",
   home: "/section-images/home.jpg",
+  automation: "/section-images/automation.jpg",
 } as const;
 
 export type SectionImageKey = keyof typeof sectionImages;

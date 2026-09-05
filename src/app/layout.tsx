@@ -102,6 +102,7 @@ const serviceNames = [
   { title: "Printer & Office Technology", description: "Printers, scanners, copiers and the office tech that keeps a workspace moving — supplied, set up, maintained and repaired." },
   { title: "Web Design & Digital Presence", description: "Fast, responsive websites optimized for search, plus business email, Google profile and online listings setup." },
   { title: "Graphic Design & Branding", description: "Logos, brand systems and marketing materials that hold together across every touchpoint." },
+  { title: "Digital Automation & Business Systems", description: "Automate repetitive business processes — customer enquiries, bookings, forms, notifications, document generation and workflows using modern digital tools." },
   { title: "Digital Skills Training", description: "Practical, hands-on digital literacy for individuals and teams — from basic computer skills to productivity tools." },
 ];
 
@@ -162,6 +163,7 @@ const jsonLd = {
     "Printer & Office Technology",
     "Web Design & Digital Presence",
     "Graphic Design & Branding",
+    "Digital Automation & Business Systems",
     "Digital Skills Training",
     "Small Business Technology",
   ],

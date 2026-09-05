@@ -19,6 +19,7 @@ import {
   Printer,
   Server,
   ChevronDown,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -333,6 +334,40 @@ const services: Service[] = [
       deliverable: "Training completion + reference materials",
     },
   },
+  {
+    icon: Workflow,
+    title: "Digital Automation & Business Systems",
+    description:
+      "We help businesses simplify repetitive processes and work smarter through digital automation. From customer enquiries and bookings to forms, notifications, document generation and business workflows, we connect the tools you already use to save time and reduce manual work.",
+    accent: "from-accent to-brand",
+    accentShadow: "shadow-accent/20",
+    accentBg: "bg-accent/10",
+    accentText: "text-accent",
+    accentBorder: "hover:border-accent/40",
+    tag: "Work Smarter",
+    tagColor: "bg-accent/15 text-accent",
+    tier: "secondary",
+    category: "Digital Automation",
+    image: sectionImages.automation,
+    details: {
+      overview:
+        "Most small businesses lose hours every week to repetitive manual work — capturing the same information twice, sending the same follow-ups, generating the same documents by hand. We build digital workflows that handle those tasks automatically, using tools and platforms your business can actually afford and maintain. No custom software development — just smart connections between the tools you already use, designed around how your business actually works.",
+      included: [
+        "Business Process Automation",
+        "Online Forms & Workflows",
+        "Customer & Lead Automation",
+        "Email & Notification Automation",
+        "Booking & Appointment Systems",
+        "Document & Invoice Automation",
+        "Microsoft 365 Automation",
+        "AI-Powered Business Solutions",
+      ],
+      idealFor:
+        "Small businesses, shops, offices and service providers who want to reduce repetitive admin work, respond to customers faster, and stop losing leads to slow manual processes",
+      timeline: "1–4 weeks (depending on scope)",
+      deliverable: "Configured automation workflows + documentation + training",
+    },
+  },
 ];
 
 const categories: Category[] = [
@@ -357,6 +392,17 @@ const categories: Category[] = [
     accentText: "text-accent",
     accentBorder: "hover:border-accent/40",
     image: sectionImages.webdesign,
+  },
+  {
+    name: "Digital Automation",
+    blurb:
+      "Reduce repetitive work and save time using digital tools — from customer enquiries and bookings to forms, notifications, document generation and business workflows.",
+    icon: Workflow,
+    accent: "from-accent to-brand",
+    accentBg: "bg-accent/10",
+    accentText: "text-accent",
+    accentBorder: "hover:border-accent/40",
+    image: sectionImages.automation,
   },
   {
     name: "Training",

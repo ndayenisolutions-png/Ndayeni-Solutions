@@ -23,6 +23,7 @@ const serviceLinks = [
   "Printer & Office Technology",
   "Web Design & Digital Presence",
   "Graphic Design & Branding",
+  "Digital Automation & Business Systems",
   "Digital Skills Training",
 ];
 
