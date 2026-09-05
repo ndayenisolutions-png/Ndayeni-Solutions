@@ -1,8 +1,25 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { Shield, Award, Users, MapPin, ArrowRight, Cpu, Wrench, LifeBuoy } from "lucide-react";
+import {
+  Shield,
+  Award,
+  Users,
+  MapPin,
+  ArrowRight,
+  Cpu,
+  Wrench,
+  LifeBuoy,
+  Target,
+  Eye,
+  Heart,
+  Handshake,
+  Clock,
+  Quote,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { sectionImages } from "@/lib/section-images";
@@ -55,13 +72,57 @@ const stats = [
   { icon: MapPin, value: 9, suffix: "", label: "Provinces Served", color: "text-brand", bg: "from-brand to-accent" },
 ];
 
-const values = [
-  { text: "Reliable & trustworthy technology partnerships", icon: Shield },
-  { text: "Practical, budget-conscious solutions", icon: Wrench },
-  { text: "Client-first approach to every project", icon: Users },
-  { text: "Affordable technology for homes & small businesses", icon: Award },
-  { text: "Founder-led technical support", icon: Cpu },
-  { text: "Local, hands-on assistance when you need it", icon: LifeBuoy },
+// Core values — the founder's picks (1, 4, 7) + 2 strong trust-builders
+const values: { icon: LucideIcon; title: string; desc: string; accent: string }[] = [
+  {
+    icon: Wrench,
+    title: "Practical Over Flashy",
+    desc: "We recommend technology based on your actual needs and budget — never the most expensive option just because. If a R300 fix solves it, that's what you get.",
+    accent: "from-brand to-brand-light",
+  },
+  {
+    icon: Handshake,
+    title: "Plain Language, No Jargon",
+    desc: "We explain what's wrong and what we're doing in words you actually understand. No acronyms, no condescension, no making you feel small for asking.",
+    accent: "from-accent to-cyan-400",
+  },
+  {
+    icon: LifeBuoy,
+    title: "Teach, Don't Just Fix",
+    desc: "When we solve a problem, we show you what caused it and how to prevent it next time. We'd rather build your confidence than keep you dependent on us.",
+    accent: "from-brand-light to-yellow-400",
+  },
+  {
+    icon: Shield,
+    title: "Transparency First",
+    desc: "We quote before we fix. No hidden fees, no surprise charges, no 'while we were in there' add-ons. You approve the price before any work starts.",
+    accent: "from-brand to-accent",
+  },
+  {
+    icon: Clock,
+    title: "We Show Up",
+    desc: "The #1 complaint about IT support is being ghosted. When we say we'll be there — on-site or remote — we're there. And if we can't make it, we tell you early.",
+    accent: "from-accent to-emerald-400",
+  },
+];
+
+const missionVision = [
+  {
+    icon: Target,
+    label: "Our Mission",
+    text: "To make reliable, affordable technology accessible to every small business, shop, school and home in South Africa — and to prove that quality IT support doesn't require a corporate budget.",
+    accent: "text-brand",
+    bg: "bg-brand/10",
+    border: "border-brand/20",
+  },
+  {
+    icon: Eye,
+    label: "Our Vision",
+    text: "A South Africa where no small business fails because of a tech problem they couldn't afford to fix — and where a kid from a deep village can see, in us, that the technology world is open to them too.",
+    accent: "text-accent",
+    bg: "bg-accent/10",
+    border: "border-accent/20",
+  },
 ];
 
 const processSteps = [
@@ -74,76 +135,49 @@ const processSteps = [
 export default function About() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
-  const leftColRef = useRef<HTMLDivElement>(null);
-  const rightColRef = useRef<HTMLDivElement>(null);
+  const storyRef = useRef<HTMLDivElement>(null);
+  const founderRef = useRef<HTMLDivElement>(null);
+  const missionRef = useRef<HTMLDivElement>(null);
   const valuesRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLDivElement>(null);
 
-  // Section header animation
-  useEffect(() => {
-    const el = headerRef.current;
-    if (!el) return;
+  // Generic fade-up animation helper
+  const useFadeUp = (ref: React.RefObject<HTMLDivElement | null>, delay = 0) => {
+    useEffect(() => {
+      const el = ref.current;
+      if (!el) return;
+      gsap.set(el, { opacity: 0, y: 30 });
+      const trigger = ScrollTrigger.create({
+        trigger: el,
+        start: "top 85%",
+        once: true,
+        onEnter: () => {
+          gsap.to(el, { opacity: 1, y: 0, duration: 0.8, delay, ease: "power3.out" });
+        },
+      });
+      return () => { trigger.kill(); };
+    }, [ref, delay]);
+  };
 
-    gsap.set(el, { opacity: 0, y: 30 });
-    const trigger = ScrollTrigger.create({
-      trigger: el,
-      start: "top 85%",
-      once: true,
-      onEnter: () => {
-        gsap.to(el, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" });
-      },
-    });
-    return () => { trigger.kill(); };
-  }, []);
-
-  // Left column animation
-  useEffect(() => {
-    const el = leftColRef.current;
-    if (!el) return;
-
-    gsap.set(el, { opacity: 0, x: -40 });
-    const trigger = ScrollTrigger.create({
-      trigger: el,
-      start: "top 80%",
-      once: true,
-      onEnter: () => {
-        gsap.to(el, { opacity: 1, x: 0, duration: 0.8, ease: "power3.out" });
-      },
-    });
-    return () => { trigger.kill(); };
-  }, []);
-
-  // Right column animation
-  useEffect(() => {
-    const el = rightColRef.current;
-    if (!el) return;
-
-    gsap.set(el, { opacity: 0, x: 40 });
-    const trigger = ScrollTrigger.create({
-      trigger: el,
-      start: "top 80%",
-      once: true,
-      onEnter: () => {
-        gsap.to(el, { opacity: 1, x: 0, duration: 0.8, delay: 0.2, ease: "power3.out" });
-      },
-    });
-    return () => { trigger.kill(); };
-  }, []);
+  useFadeUp(headerRef);
+  useFadeUp(storyRef);
+  useFadeUp(founderRef, 0.1);
+  useFadeUp(missionRef, 0.1);
 
   // Values stagger animation
   useEffect(() => {
     const el = valuesRef.current;
     if (!el) return;
 
-    const items = el.querySelectorAll(".value-item");
-    gsap.set(items, { opacity: 0, x: -20 });
+    const items = el.querySelectorAll(".value-card");
+    gsap.set(items, { opacity: 0, y: 30 });
 
     const trigger = ScrollTrigger.create({
       trigger: el,
       start: "top 80%",
       once: true,
       onEnter: () => {
-        gsap.to(items, { opacity: 1, x: 0, duration: 0.4, stagger: 0.08, ease: "power3.out" });
+        gsap.to(items, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: "power3.out" });
       },
     });
     return () => { trigger.kill(); };
@@ -194,62 +228,138 @@ export default function About() {
           style={{ opacity: 0 }}
         >
           <span className="text-accent text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3 sm:mb-4 block">
-            Who We Are
+            Our Story
           </span>
           <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-6">
-            <span className="text-warm-white">About </span>
-            <span className="text-gradient-brand">Ndayeni Solutions</span>
+            <span className="text-warm-white">From a Village in KZN to </span>
+            <span className="text-gradient-brand">Your Technology Partner</span>
           </h2>
+          <p className="text-text-muted text-sm sm:text-base max-w-2xl mx-auto px-2 sm:px-0">
+            Ndayeni Solutions isn&apos;t just an IT company — it&apos;s proof that
+            where you start doesn&apos;t decide where you finish.
+          </p>
         </div>
 
-        {/* Content Grid */}
-        <div className="grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-16 items-center mb-12 sm:mb-20">
-          {/* Left - Text Content */}
-          <div ref={leftColRef} style={{ opacity: 0 }}>
-            <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-warm-white mb-4 sm:mb-6 leading-tight">
-              <span>Technology Should </span>
-              <span className="text-gradient-brand">Empower</span>, Not Frustrate.
-            </h3>
-            <p className="text-text-muted text-sm sm:text-base leading-relaxed mb-4">
-              Ndayeni Solutions was founded in 2023 by Nhlakanipho Ntshangase,
-              a qualified Computer Systems Engineer who saw firsthand how hard
-              it is for small businesses and homes to find affordable, reliable
-              technology help. One provider who can handle your computers, your
-              network, your CCTV and your website — without the jargon.
-            </p>
-            <p className="text-text-muted text-sm sm:text-base leading-relaxed mb-6">
-              Based in Kaalfontein, Midrand, we service clients nationwide —
-              with Gauteng, Mpumalanga and KwaZulu-Natal making up the bulk of
-              our work. We work with small businesses, shops, offices, NGOs,
-              schools and home users. We&apos;re founder-led and hands-on — we
-              show up, we fix it, and we explain it in plain language. As we
-              grow, our team grows, but the commitment to practical, affordable
-              technology stays the same.
-            </p>
+        {/* The Founding Story */}
+        <div ref={storyRef} className="max-w-4xl mx-auto mb-12 sm:mb-20" style={{ opacity: 0 }}>
+          <div className="glass rounded-2xl p-5 sm:p-8 lg:p-10 border-brand/10 relative overflow-hidden">
+            {/* Quote mark decoration */}
+            <Quote className="absolute top-4 right-4 w-16 h-16 text-brand/5" aria-hidden="true" />
 
-            {/* Values Grid */}
-            <div ref={valuesRef} className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-6 sm:mb-8">
-              {values.map((value) => (
-                <div
-                  key={value.text}
-                  className="value-item flex items-center gap-3 glass rounded-lg px-3 py-2.5 border-brand/5 hover:border-brand/15 transition-colors duration-300"
-                >
-                  <value.icon className="w-4 h-4 text-accent flex-shrink-0" />
-                  <span className="text-text-muted text-xs sm:text-sm">{value.text}</span>
+            <div className="relative z-10 space-y-4 sm:space-y-5">
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-warm-white leading-tight">
+                I was born and raised in the deep villages of KwaZulu-Natal.
+              </h3>
+
+              <p className="text-text-muted text-sm sm:text-base leading-relaxed">
+                Growing up, I knew almost nothing about the IT space — or the
+                world of opportunities hidden inside technology. It felt like a
+                door that was closed to people like me. That changed when I
+                studied Computer Systems Engineering and stepped into the tech
+                world myself.
+              </p>
+
+              <p className="text-text-muted text-sm sm:text-base leading-relaxed">
+                Once I was inside, I noticed something that stayed with me: how
+                much the youth in our villages and townships were missing out
+                on. The same opportunities that had changed my life were sitting
+                there, invisible, to kids who&apos;d never been told they existed.
+                The love and ambition I have for technology, plus the wish to
+                bring it — and all its opportunities — closer to our people,
+                became the reason Ndayeni Solutions exists.
+              </p>
+
+              <p className="text-warm-white text-sm sm:text-base leading-relaxed font-medium">
+                We founded Ndayeni Solutions in <span className="text-brand">2023</span> to be
+                the living proof — to every kid out there missing out on
+                important information — that it is possible to make it in the
+                tech space, no matter your background. <span className="text-accent">And we&apos;re here to help.</span>
+              </p>
+
+              {/* Signature line */}
+              <div className="pt-4 border-t border-dark-border/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand to-brand-light flex items-center justify-center flex-shrink-0">
+                    <span className="text-dark-deep font-bold text-base">N</span>
+                  </div>
+                  <div>
+                    <div className="text-warm-white font-semibold text-sm">
+                      Nhlakanipho Ntshangase
+                    </div>
+                    <div className="text-text-muted text-xs">
+                      Founder &amp; Computer Systems Engineer
+                    </div>
+                  </div>
                 </div>
-              ))}
+              </div>
             </div>
+          </div>
+        </div>
 
-            <a href="#contact">
-              <Button className="bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-xl hover:shadow-brand/25 transition-all duration-500 font-semibold px-6 sm:px-8 py-4 sm:py-5 text-sm sm:text-base rounded-full group">
-                Request a Quote
-                <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </a>
+        {/* Mission & Vision */}
+        <div ref={missionRef} className="grid md:grid-cols-2 gap-4 sm:gap-6 mb-12 sm:mb-20" style={{ opacity: 0 }}>
+          {missionVision.map((mv) => (
+            <Card
+              key={mv.label}
+              className={`bg-dark-card/80 backdrop-blur-sm border ${mv.border} hover:scale-[1.02] transition-all duration-500`}
+            >
+              <CardContent className="p-5 sm:p-6 lg:p-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-11 h-11 rounded-xl ${mv.bg} flex items-center justify-center flex-shrink-0`}>
+                    <mv.icon className={`w-5 h-5 ${mv.accent}`} />
+                  </div>
+                  <span className="text-xs sm:text-sm font-semibold tracking-[0.15em] uppercase text-text-muted">
+                    {mv.label}
+                  </span>
+                </div>
+                <p className="text-warm-white text-sm sm:text-base leading-relaxed">
+                  {mv.text}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Core Values */}
+        <div className="mb-12 sm:mb-20">
+          <div className="text-center mb-8 sm:mb-10">
+            <span className="text-brand text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3 block">
+              What We Stand For
+            </span>
+            <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold">
+              <span className="text-warm-white">Our Core </span>
+              <span className="text-gradient-brand">Values</span>
+            </h3>
           </div>
 
-          {/* Right - Visual Element */}
-          <div ref={rightColRef} style={{ opacity: 0 }}>
+          <div ref={valuesRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            {values.map((value) => (
+              <Card
+                key={value.title}
+                className="value-card h-full bg-dark-card/80 backdrop-blur-sm border-dark-border/50 hover:border-brand/40 transition-all duration-500 hover:-translate-y-1 group overflow-hidden"
+              >
+                {/* Top accent bar */}
+                <div aria-hidden="true" className={`h-[2px] bg-gradient-to-r ${value.accent} opacity-30 group-hover:opacity-80 transition-opacity duration-500`} />
+                <CardContent className="p-5 sm:p-6 relative z-10">
+                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${value.accent} opacity-10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500`}>
+                    <value.icon className={`w-6 h-6 ${value.accent.includes("brand") ? "text-brand" : value.accent.includes("accent") ? "text-accent" : "text-brand-light"}`} />
+                  </div>
+                  <h4 className="text-warm-white font-bold text-base sm:text-lg mb-2">
+                    {value.title}
+                  </h4>
+                  <p className="text-text-muted text-sm leading-relaxed">
+                    {value.desc}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Founder Spotlight + Process */}
+        <div className="grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-16 items-center mb-12 sm:mb-20">
+          {/* Founder Quote Card */}
+          <div ref={founderRef} style={{ opacity: 0 }}>
             <div className="glass rounded-2xl p-5 sm:p-8 relative overflow-hidden">
               {/* Background Dot Pattern */}
               <div className="absolute inset-0 opacity-[0.03]" aria-hidden="true">
@@ -279,23 +389,11 @@ export default function About() {
                     </div>
                   </div>
                   <blockquote className="text-warm-white text-base sm:text-lg italic leading-relaxed border-l-2 border-brand/30 pl-4">
-                    &ldquo;We are dedicated to ensuring that your tech works
-                    for you, not against you.&rdquo;
+                    &ldquo;Technology changed my life. Ndayeni Solutions exists to
+                    make sure it changes theirs too — whether that&apos;s a small
+                    business that needs reliable IT, or a kid in a village who
+                    needs to know this world is open to them.&rdquo;
                   </blockquote>
-                </div>
-
-                {/* Process Steps */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6 sm:mb-8">
-                  {processSteps.map((step) => (
-                    <div
-                      key={step.step}
-                      className="text-center glass rounded-xl p-2 sm:p-3 border-brand/10"
-                    >
-                      <div className="text-brand text-[10px] sm:text-xs font-bold mb-0.5 sm:mb-1">{step.step}</div>
-                      <div className="text-warm-white text-xs sm:text-sm font-semibold">{step.title}</div>
-                      <div className="text-text-muted text-[9px] sm:text-[11px] leading-tight mt-0.5">{step.desc}</div>
-                    </div>
-                  ))}
                 </div>
 
                 {/* Company Details */}
@@ -321,16 +419,47 @@ export default function About() {
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3">
                     <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-brand-light/10 flex items-center justify-center flex-shrink-0">
-                      <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-light" />
+                      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-light" />
                     </div>
                     <div>
                       <div className="text-warm-white text-[10px] sm:text-xs font-medium">Midrand, SA</div>
-                      <div className="text-text-muted text-[8px] sm:text-[10px]">Location</div>
+                      <div className="text-text-muted text-[8px] sm:text-[10px]">Based in</div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* How We Work — Process */}
+          <div>
+            <div className="text-center lg:text-left mb-6 sm:mb-8">
+              <span className="text-accent text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3 block">
+                How We Work
+              </span>
+              <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-warm-white">
+                From first call to ongoing support
+              </h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6 sm:mb-8">
+              {processSteps.map((step) => (
+                <div
+                  key={step.step}
+                  className="text-center glass rounded-xl p-2 sm:p-3 border-brand/10"
+                >
+                  <div className="text-brand text-[10px] sm:text-xs font-bold mb-0.5 sm:mb-1">{step.step}</div>
+                  <div className="text-warm-white text-xs sm:text-sm font-semibold">{step.title}</div>
+                  <div className="text-text-muted text-[9px] sm:text-[11px] leading-tight mt-0.5">{step.desc}</div>
+                </div>
+              ))}
+            </div>
+
+            <a href="#contact">
+              <Button className="bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-xl hover:shadow-brand/25 transition-all duration-500 font-semibold px-6 sm:px-8 py-4 sm:py-5 text-sm sm:text-base rounded-full group w-full sm:w-auto">
+                Work With Us
+                <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </a>
           </div>
         </div>
 
