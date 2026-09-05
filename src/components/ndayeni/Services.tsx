@@ -251,7 +251,7 @@ const services: Service[] = [
     tag: "Most Popular",
     tagColor: "bg-brand/15 text-brand",
     tier: "secondary",
-    category: "Digital Business",
+    category: "Digital Services",
     image: sectionImages.webdesign,
     details: {
       overview:
@@ -283,7 +283,7 @@ const services: Service[] = [
     tag: "Creative",
     tagColor: "bg-brand/15 text-brand",
     tier: "supporting",
-    category: "Digital Business",
+    category: "Digital Services",
     image: sectionImages.graphicdesign,
     details: {
       overview:
@@ -383,7 +383,7 @@ const categories: Category[] = [
     image: sectionImages.network,
   },
   {
-    name: "Digital Business",
+    name: "Digital Services",
     blurb:
       "Your presence online — fast websites, business email and branding that holds together across every touchpoint customers find you on.",
     icon: Globe,
