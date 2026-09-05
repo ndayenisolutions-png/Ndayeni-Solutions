@@ -10,6 +10,7 @@ import About from "@/components/ndayeni/About";
 import Contact from "@/components/ndayeni/Contact";
 import Footer from "@/components/ndayeni/Footer";
 import SectionDivider from "@/components/ndayeni/SectionDivider";
+import WhatsAppButton from "@/components/ndayeni/WhatsAppButton";
 
 export default function Home() {
   return (
@@ -31,6 +32,7 @@ export default function Home() {
         <Contact />
       </main>
       <Footer />
+      <WhatsAppButton />
     </div>
   );
 }
