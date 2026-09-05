@@ -72,7 +72,7 @@ const stats = [
   { icon: MapPin, value: 9, suffix: "", label: "Provinces Served", color: "text-brand", bg: "from-brand to-accent" },
 ];
 
-// Core values — the founder's picks (1, 4, 7) + 2 strong trust-builders
+// Core values — the founder's picks (1, 4, 7) + 3 strong trust-builders
 const values: { icon: LucideIcon; title: string; desc: string; accent: string }[] = [
   {
     icon: Wrench,
@@ -104,13 +104,19 @@ const values: { icon: LucideIcon; title: string; desc: string; accent: string }[
     desc: "The #1 complaint about IT support is being ghosted. When we say we'll be there — on-site or remote — we're there. And if we can't make it, we tell you early.",
     accent: "from-accent to-emerald-400",
   },
+  {
+    icon: Heart,
+    title: "Rooted in Community",
+    desc: "We come from where many of our clients come from. That shapes how we price, how we show up, and how we treat every person who trusts us with their technology — no matter the size of the job.",
+    accent: "from-brand to-brand-light",
+  },
 ];
 
 const missionVision = [
   {
     icon: Target,
     label: "Our Mission",
-    text: "To make reliable, affordable technology accessible to every small business, shop, school and home in South Africa — and to prove that quality IT support doesn't require a corporate budget.",
+    text: "To make dependable technology accessible to the businesses and homes that need it most — by providing honest, practical IT support that doesn't require a corporate budget to afford.",
     accent: "text-brand",
     bg: "bg-brand/10",
     border: "border-brand/20",
@@ -118,7 +124,7 @@ const missionVision = [
   {
     icon: Eye,
     label: "Our Vision",
-    text: "A South Africa where no small business fails because of a tech problem they couldn't afford to fix — and where a kid from a deep village can see, in us, that the technology world is open to them too.",
+    text: "To become South Africa's most trusted technology partner for small businesses and homes — and to show, by example, that world-class IT service can come from anywhere.",
     accent: "text-accent",
     bg: "bg-accent/10",
     border: "border-accent/20",
@@ -231,12 +237,12 @@ export default function About() {
             Our Story
           </span>
           <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-6">
-            <span className="text-warm-white">From a Village in KZN to </span>
-            <span className="text-gradient-brand">Your Technology Partner</span>
+            <span className="text-warm-white">Technology That Works for </span>
+            <span className="text-gradient-brand">Everyone</span>
           </h2>
           <p className="text-text-muted text-sm sm:text-base max-w-2xl mx-auto px-2 sm:px-0">
-            Ndayeni Solutions isn&apos;t just an IT company — it&apos;s proof that
-            where you start doesn&apos;t decide where you finish.
+            Ndayeni Solutions was built on a simple belief: reliable technology
+            shouldn&apos;t be a luxury reserved for big companies with big budgets.
           </p>
         </div>
 
@@ -248,32 +254,33 @@ export default function About() {
 
             <div className="relative z-10 space-y-4 sm:space-y-5">
               <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-warm-white leading-tight">
-                I was born and raised in the deep villages of KwaZulu-Natal.
+                Built where technology was least expected.
               </h3>
 
               <p className="text-text-muted text-sm sm:text-base leading-relaxed">
-                Growing up, I knew almost nothing about the IT space — or the
-                world of opportunities hidden inside technology. It felt like a
-                door that was closed to people like me. That changed when I
-                studied Computer Systems Engineering and stepped into the tech
-                world myself.
+                Ndayeni Solutions was founded in 2023 by Nhlakanipho Ntshangase,
+                a qualified Computer Systems Engineer whose journey into
+                technology started far from the industry&apos;s usual path.
+                Having seen firsthand how small businesses, shops and homes
+                across South Africa struggle to find affordable, dependable
+                tech help — and how often they get overcharged or talked down
+                to in the process — he set out to build something different.
               </p>
 
               <p className="text-text-muted text-sm sm:text-base leading-relaxed">
-                Once I was inside, I noticed something that stayed with me: how
-                much the youth in our villages and townships were missing out
-                on. The same opportunities that had changed my life were sitting
-                there, invisible, to kids who&apos;d never been told they existed.
-                The love and ambition I have for technology, plus the wish to
-                bring it — and all its opportunities — closer to our people,
-                became the reason Ndayeni Solutions exists.
+                The company was founded on a straightforward idea: that the
+                businesses and homes that need technology the most are often
+                the ones least served by the industry as it stands. Ndayeni
+                Solutions exists to change that — by providing honest, practical,
+                plain-spoken IT support that treats every client, regardless of
+                size, as a partner worth showing up for.
               </p>
 
               <p className="text-warm-white text-sm sm:text-base leading-relaxed font-medium">
-                We founded Ndayeni Solutions in <span className="text-brand">2023</span> to be
-                the living proof — to every kid out there missing out on
-                important information — that it is possible to make it in the
-                tech space, no matter your background. <span className="text-accent">And we&apos;re here to help.</span>
+                Today, based in Midrand and serving clients nationwide — with
+                Gauteng, Mpumalanga and KwaZulu-Natal at the core — Ndayeni
+                Solutions handles everything from computer repairs and office
+                networks to CCTV installations and websites. <span className="text-accent">One partner, all your technology, handled properly.</span>
               </p>
 
               {/* Signature line */}
@@ -389,10 +396,10 @@ export default function About() {
                     </div>
                   </div>
                   <blockquote className="text-warm-white text-base sm:text-lg italic leading-relaxed border-l-2 border-brand/30 pl-4">
-                    &ldquo;Technology changed my life. Ndayeni Solutions exists to
-                    make sure it changes theirs too — whether that&apos;s a small
-                    business that needs reliable IT, or a kid in a village who
-                    needs to know this world is open to them.&rdquo;
+                    &ldquo;Good technology should make life easier — not more
+                    complicated or more expensive. That&apos;s the standard we
+                    hold every job to, whether it&apos;s a single laptop or a
+                    full office network.&rdquo;
                   </blockquote>
                 </div>
 
