@@ -9,6 +9,7 @@ import {
   Store,
   LifeBuoy,
   ArrowRight,
+  Wallet,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,12 @@ const sellingPoints: SellingPoint[] = [
     title: "Ongoing Support",
     description:
       "We don't disappear after installation. We can maintain, monitor and support your systems so they keep running long after the job is done.",
+  },
+  {
+    icon: Wallet,
+    title: "Fair, Honest Pricing",
+    description:
+      "We quote before we work — no surprise charges, no vague invoices. You know exactly what you're paying for and why, every single time.",
   },
 ];
 
@@ -113,9 +120,6 @@ export default function WhyNdayeni() {
     };
   }, []);
 
-  const topRow = sellingPoints.slice(0, 3);
-  const bottomRow = sellingPoints.slice(3);
-
   return (
     <section
       id="why"
@@ -167,65 +171,33 @@ export default function WhyNdayeni() {
           </p>
         </div>
 
-        {/* Cards */}
-        <div ref={cardsRef}>
-          {/* Row 1 — 3 cards (1 col mobile, 2 col sm, 3 col lg) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6 mb-4 sm:mb-5 lg:mb-6">
-            {topRow.map((point) => {
-              const Icon = point.icon;
-              return (
-                <Card
-                  key={point.title}
-                  className="why-card h-full bg-dark-card/80 backdrop-blur-sm border-dark-border/50 hover:border-brand/40 transition-all duration-500 hover:-translate-y-1 group overflow-hidden"
-                >
-                  <div
-                    aria-hidden="true"
-                    className="h-[2px] bg-gradient-to-r from-brand to-brand-light opacity-30 group-hover:opacity-80 transition-opacity duration-500"
-                  />
-                  <CardContent className="p-5 sm:p-6 lg:p-8 relative z-10">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-4 sm:mb-5 group-hover:scale-110 transition-transform duration-500">
-                      <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-brand" />
-                    </div>
-                    <h3 className="text-warm-white font-bold text-lg mb-2 sm:mb-3 group-hover:text-brand transition-colors duration-300">
-                      {point.title}
-                    </h3>
-                    <p className="text-text-muted text-sm leading-relaxed">
-                      {point.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          {/* Row 2 — 2 cards centered */}
-          <div className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-            {bottomRow.map((point) => {
-              const Icon = point.icon;
-              return (
-                <Card
-                  key={point.title}
-                  className="why-card h-full bg-dark-card/80 backdrop-blur-sm border-dark-border/50 hover:border-brand/40 transition-all duration-500 hover:-translate-y-1 group overflow-hidden"
-                >
-                  <div
-                    aria-hidden="true"
-                    className="h-[2px] bg-gradient-to-r from-brand to-brand-light opacity-30 group-hover:opacity-80 transition-opacity duration-500"
-                  />
-                  <CardContent className="p-5 sm:p-6 lg:p-8 relative z-10">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-4 sm:mb-5 group-hover:scale-110 transition-transform duration-500">
-                      <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-brand" />
-                    </div>
-                    <h3 className="text-warm-white font-bold text-lg mb-2 sm:mb-3 group-hover:text-brand transition-colors duration-300">
-                      {point.title}
-                    </h3>
-                    <p className="text-text-muted text-sm leading-relaxed">
-                      {point.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+        {/* Cards — single 3-column grid (2 rows of 3 on desktop) */}
+        <div ref={cardsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
+          {sellingPoints.map((point) => {
+            const Icon = point.icon;
+            return (
+              <Card
+                key={point.title}
+                className="why-card h-full bg-dark-card/80 backdrop-blur-sm border-dark-border/50 hover:border-brand/40 transition-all duration-500 hover:-translate-y-1 group overflow-hidden"
+              >
+                <div
+                  aria-hidden="true"
+                  className="h-[2px] bg-gradient-to-r from-brand to-brand-light opacity-30 group-hover:opacity-80 transition-opacity duration-500"
+                />
+                <CardContent className="p-5 sm:p-6 lg:p-8 relative z-10">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-4 sm:mb-5 group-hover:scale-110 transition-transform duration-500">
+                    <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-brand" />
+                  </div>
+                  <h3 className="text-warm-white font-bold text-lg mb-2 sm:mb-3 group-hover:text-brand transition-colors duration-300">
+                    {point.title}
+                  </h3>
+                  <p className="text-text-muted text-sm leading-relaxed">
+                    {point.description}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Bottom CTA band */}
