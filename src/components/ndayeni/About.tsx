@@ -210,18 +210,9 @@ export default function About() {
 
   return (
     <section id="about" className="relative py-12 sm:py-20 md:py-28" ref={sectionRef}>
-      {/* Background */}
+      {/* Background — clean solid with subtle mesh + decorative orbs for depth */}
       <div className="absolute inset-0" aria-hidden="true">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `url(${sectionImages.techtheme})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            opacity: 0.3,
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-dark-deep/55 via-dark-deep/60 to-dark-deep/70" />
+        <div className="absolute inset-0 mesh-gradient" />
         <div className="absolute top-1/2 left-1/4 w-[400px] sm:w-[600px] h-[400px] sm:h-[600px] bg-brand/4 rounded-full blur-[150px]" />
         <div className="absolute bottom-1/4 right-1/4 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-accent/3 rounded-full blur-[120px]" />
       </div>

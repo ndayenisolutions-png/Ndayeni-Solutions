@@ -171,14 +171,8 @@ export default function CarePlans() {
       className="relative py-12 sm:py-20 md:py-28"
       aria-labelledby="care-plans-heading"
     >
-      {/* Background */}
+      {/* Background — clean solid with subtle mesh for depth */}
       <div className="absolute inset-0 mesh-gradient" aria-hidden="true" />
-      <div
-        aria-hidden="true"
-        className="section-bg-image"
-        style={{ backgroundImage: `url(${sectionImages.itsupport2})` }}
-      />
-      <div className="absolute inset-0 section-bg-overlay" aria-hidden="true" style={{ zIndex: 0 }} />
 
       {/* Decorative floating shapes */}
       <div

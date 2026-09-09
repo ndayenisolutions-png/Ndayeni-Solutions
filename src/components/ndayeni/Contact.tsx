@@ -251,14 +251,8 @@ export default function Contact() {
 
   return (
     <section id="contact" className="relative py-12 sm:py-20 md:py-28" ref={sectionRef}>
-      {/* Background */}
+      {/* Background — clean solid with subtle mesh for depth */}
       <div className="absolute inset-0 mesh-gradient" aria-hidden="true" />
-      <div
-        aria-hidden="true"
-        className="section-bg-image"
-        style={{ backgroundImage: `url(${sectionImages.workspace})` }}
-      />
-      <div className="absolute inset-0 section-bg-overlay" aria-hidden="true" style={{ zIndex: 0 }} />
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" aria-hidden="true" />
 
       {/* Decorative orbs */}
