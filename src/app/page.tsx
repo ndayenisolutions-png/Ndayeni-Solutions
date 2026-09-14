@@ -6,6 +6,8 @@ import WhyNdayeni from "@/components/ndayeni/WhyNdayeni";
 import Services from "@/components/ndayeni/Services";
 import BusinessSolutions from "@/components/ndayeni/BusinessSolutions";
 import CarePlans from "@/components/ndayeni/CarePlans";
+import Testimonials from "@/components/ndayeni/Testimonials";
+import TrustSignals from "@/components/ndayeni/TrustSignals";
 import About from "@/components/ndayeni/About";
 import Contact from "@/components/ndayeni/Contact";
 import Footer from "@/components/ndayeni/Footer";
@@ -27,10 +29,13 @@ export default function Home() {
         <SectionDivider variant="mixed" />
         <CarePlans />
         <SectionDivider variant="accent" />
+        <Testimonials />
+        <SectionDivider variant="brand" />
         <About />
         <SectionDivider variant="mixed" />
         <Contact />
       </main>
+      <TrustSignals />
       <Footer />
       <WhatsAppButton />
     </div>

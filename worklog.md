@@ -171,3 +171,65 @@ Work Log:
 Stage Summary:
 - FULL REBUILD COMPLETE. Everything from the lost session is restored: 15 recommendations, Services accordion, Hero two-column, mobile menu fix, 13 VLM-verified watermark-free images, smart contact form, SMTP email delivery (production mode confirmed).
 - SAFEGUARD IN PLACE: All work committed to git (commit 85a57ae). .env untracked + gitignored (credentials protected). A future environment reset can be recovered with `git checkout .` or `git reset --hard 85a57ae`.
+
+---
+Task ID: TRUST-1
+Agent: general-purpose
+Task: Create TrustSignals.tsx component (POPIA compliance + security signals)
+
+Work Log:
+- Read /home/z/my-project/worklog.md to recover project context (Ndayeni Solutions migration + WhyNdayeni / BusinessSolutions / CarePlans rebuilds + full REBUILD-ALL with images, SMTP, git commit 85a57ae).
+- Inspected sibling components for design + GSAP conventions: src/components/ndayeni/WhyNdayeni.tsx (ScrollTrigger.create + once:true + trigger.kill() cleanup pattern, `.why-card` selector stagger) and src/components/ndayeni/CarePlans.tsx (LucideIcon typing, "use client" + window-guard plugin register).
+- Confirmed page.tsx imports CarePlans + About at lines 8-9 and renders them at lines 28/30 (TrustSignals will slot between them when integrated).
+- Created /home/z/my-project/src/components/ndayeni/TrustSignals.tsx implementing:
+  - "use client" directive at top.
+  - Imports: `useRef, useEffect` from react; `type LucideIcon` + `ShieldCheck, Lock, FileCheck, BadgeCheck` from lucide-react; `gsap` + `ScrollTrigger` with `if (typeof window !== "undefined")` register guard.
+  - `TrustSignal` type (icon: LucideIcon; title: string; description: string; iconText: string) — no `any` used anywhere.
+  - `trustSignals` array with the 4 exact items: POPIA Compliant (ShieldCheck, text-brand), Secure by Default (Lock, text-accent), SLA-Backed Support (FileCheck, text-brand-light), Verified & Insured (BadgeCheck, text-brand) — exact copy verbatim.
+  - `<section id="trust" ref={sectionRef} aria-label="Trust & compliance signals" className="relative py-10 sm:py-14">` — compact strip, no header.
+  - Background: `<div className="absolute inset-0 bg-dark-surface/50" aria-hidden="true" />` + top and bottom gradient borders (`h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent`, both aria-hidden).
+  - Inner container `relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8` wrapping a `grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4` (2x2 mobile, 1x4 desktop).
+  - Each badge is a `<div className="trust-badge glass rounded-xl p-4 sm:p-5 border-brand/10">` containing: icon in `w-10 h-10 rounded-lg bg-brand/10 flex items-center justify-center mb-2.5`, title `text-warm-white font-semibold text-xs sm:text-sm`, description `text-text-muted text-[10px] sm:text-xs leading-tight mt-1`.
+  - GSAP: useEffect with `gridRef`, `gsap.set(items, { opacity: 0, y: 24 })` then `ScrollTrigger.create({ start: "top 85%", once: true, onEnter: gsap.to({ opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: "power3.out" }) })` targeting `.trust-badge` elements via `querySelectorAll<HTMLElement>`. Cleanup returns `trigger.kill()`.
+  - Accessibility: semantic section with `aria-label`, `aria-hidden="true"` on background surface + gradient borders + decorative icons, headings use `<h3>` for proper hierarchy within the strip.
+- Verified: `bunx tsc --noEmit --skipLibCheck` reports ZERO errors mentioning TrustSignals (pre-existing unrelated errors elsewhere unchanged). `bun run lint` → clean, no errors/warnings.
+
+Stage Summary:
+- /home/z/my-project/src/components/ndayeni/TrustSignals.tsx created (~135 lines), fully-typed, GSAP-animated, accessible, mobile-first.
+- Compact trust/compliance strip with 4 glass badges (POPIA Compliant, Secure by Default, SLA-Backed Support, Verified & Insured) following the exact design system (bg-dark-surface/50, glass + border-brand/10, text-brand/accent/brand-light icons, 2-col mobile → 4-col sm).
+- Passes tsc + eslint. Self-contained, no new dependencies, no `any`.
+- Ready to be wired into src/app/page.tsx between `<CarePlans />` and `<About />` (or right before the footer) — integration step is out of scope for this component task.
+
+---
+Task ID: TESTIMONIALS-1
+Agent: general-purpose
+Task: Create Testimonials.tsx component
+
+Work Log:
+- Read /home/z/my-project/worklog.md to recover project context (Ndayeni Solutions migrated into active Next.js 16 project on port 3000; site stack = Next.js 16 + React 19 + Tailwind 4 + shadcn/ui + GSAP/ScrollTrigger + Prisma; dark theme with brand-blue/accent-teal palette defined in src/app/globals.css).
+- Inspected sibling components for design conventions: src/components/ndayeni/About.tsx (mesh-gradient bg + 2 blurred orbs pattern, ScrollTrigger.create + once:true + trigger.kill() cleanup, .value-card staggered querySelectorAll pattern, glass card + gradient-text header) and src/components/ui/card.tsx (Card + CardContent exports, arbitrary Tailwind classes pass through cn()).
+- Created /home/z/my-project/src/components/ndayeni/Testimonials.tsx implementing:
+  * "use client" directive at top.
+  * Imports: useRef/useEffect from react, Quote + Star from lucide-react, Card + CardContent from @/components/ui/card, gsap + ScrollTrigger (registration guarded with `if (typeof window !== "undefined")`).
+  * Strict TypeScript: typed `Testimonial` interface ({ name, role, location, quote, initial }) — no `any` used anywhere.
+  * PLACEHOLDER comment immediately above the testimonials array: `// PLACEHOLDER TESTIMONIALS — replace with real client reviews when available.`
+  * 3 testimonials (Thabo M. / Sarah N. / David K.) with exact copy, role, location and first-initial avatar (T, S, D) per spec.
+  * `<section id="testimonials" aria-labelledby="testimonials-heading" className="relative py-12 sm:py-20 md:py-28">` (semantic + accessible).
+  * Background: `<div className="absolute inset-0" aria-hidden="true">` wrapping mesh-gradient + 2 decorative blurred orbs (top-left `bg-brand/4`, bottom-right `bg-accent/3`, both `rounded-full blur-[120px]`).
+  * Centered GSAP-animated header (headerRef): eyebrow `text-brand text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3 sm:mb-4 block` "Client Feedback"; H2 with `text-warm-white` "What Clients " + `text-gradient-brand` "Say About Us" (id="testimonials-heading"); subtitle `text-text-muted max-w-2xl mx-auto` with exact copy.
+  * Cards grid (cardsRef): `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6`.
+  * Each card: shadcn `Card` with `testimonial-card h-full bg-dark-card/80 backdrop-blur-sm border-dark-border/50 hover:border-brand/40 transition-all duration-500 hover:-translate-y-1 group` (exact className from spec).
+  * Each card body: CardContent `p-5 sm:p-6 lg:p-8` containing Quote icon (`text-brand/30 w-10 h-10 mb-4`), 5 gold stars (Star `w-4 h-4 text-yellow-400 fill-yellow-400`) inside a flex with role="img" aria-label="5 out of 5 stars", italic blockquote text `text-warm-white/90 text-sm sm:text-base leading-relaxed italic mb-5`, divider `h-px bg-dark-border/30 mb-4`, author row (avatar circle w-10 h-10 rounded-full bg-gradient-to-br from-brand to-brand-light with first initial; name `text-warm-white font-semibold text-sm`; role+location `text-text-muted text-xs`).
+  * Bottom Google rating badge row: exactly as specified — glass pill with 5 stars, "4.9 / 5" + "from 40+ reviews" + "Leave us a review on Google →" tagline, responsive flex-col sm:flex-row.
+  * GSAP animations: header fade-up via gsap.set opacity:0 y:30 + ScrollTrigger.create({trigger, start:"top 85%", once:true, onEnter:gsap.to opacity:1 y:0 duration:0.8 ease:"power3.out"}); cards staggered via gsap.set on `.testimonial-card` (opacity:0 y:40) + ScrollTrigger start:"top 80%" once → gsap.to duration:0.5 stagger:0.1 ease:"power3.out"; both cleaned up via trigger.kill() in useEffect return.
+  * All decorative elements marked aria-hidden="true"; avatar decorative; section uses aria-labelledby.
+  * Mobile-first responsive throughout (sm:, lg: breakpoints).
+- Verified: `bunx tsc --noEmit` reports ZERO TypeScript errors attributable to Testimonials.tsx (pre-existing errors in unrelated files unchanged). `bun run lint` clean (no errors/warnings).
+
+Stage Summary:
+- /home/z/my-project/src/components/ndayeni/Testimonials.tsx created (~210 lines), passes TypeScript strict + ESLint clean.
+- Component follows the Ndayeni dark-themed design system exactly (bg-dark-card/80, border-dark-border/50, text-gradient-brand, mesh-gradient + bg-brand/bg-accent blurred orbs, glass class on rating badge) and the project's GSAP + shadcn Card patterns established in About.tsx / Services.tsx.
+- 3 PLACEHOLDER testimonials with realistic copy and a clearly marked placeholder comment per spec — ready to be swapped for real client reviews when available.
+- Bottom trust element (Google rating badge) rendered exactly as specified.
+- Component is self-contained and does not require any new dependencies.
+- Next action (out of scope for this task): import `<Testimonials />` into src/app/page.tsx (e.g. after BusinessSolutions / CarePlans and before About, or wherever social proof should appear) when the page composition is updated.
