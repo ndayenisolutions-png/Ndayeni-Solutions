@@ -25,6 +25,7 @@ interface Plan {
   icon: LucideIcon;
   forWhom: string;
   included: string[];
+  priceFrom: string;
   iconBg: string;
   iconText: string;
   borderClasses: string;
@@ -40,6 +41,7 @@ const plans: Plan[] = [
     name: "Basic",
     icon: User,
     forWhom: "Individuals & home users",
+    priceFrom: "R499",
     included: [
       "Quarterly device health check",
       "Remote support (email & phone)",
@@ -60,6 +62,7 @@ const plans: Plan[] = [
     name: "Business",
     icon: Building2,
     forWhom: "Small businesses & offices",
+    priceFrom: "R1,499",
     included: [
       "Monthly on-site maintenance visit",
       "Remote & on-site support",
@@ -83,6 +86,7 @@ const plans: Plan[] = [
     name: "Business Plus",
     icon: Server,
     forWhom: "Multi-device businesses with network/CCTV",
+    priceFrom: "R2,999",
     included: [
       "Bi-weekly on-site maintenance",
       "Critical system monitoring",
@@ -278,11 +282,13 @@ export default function CarePlans() {
 
                   {/* Pricing area */}
                   <div className="mb-5 pt-2">
-                    <div className="text-text-muted text-xs">
-                      Pricing on request
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-text-muted text-xs">from</span>
+                      <span className="text-warm-white font-bold text-lg">{plan.priceFrom}</span>
+                      <span className="text-text-muted text-xs">/month</span>
                     </div>
                     <div className="text-text-muted/70 text-xs mt-0.5">
-                      Based on your setup &amp; number of devices
+                      Final price based on your setup &amp; number of devices
                     </div>
                   </div>
 

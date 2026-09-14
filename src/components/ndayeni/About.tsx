@@ -38,28 +38,33 @@ function AnimatedCounter({ target, suffix = "" }: {
     const el = ref.current;
     if (!el) return;
 
-    gsap.set(el, { textContent: "0" });
+    // Simple, bulletproof counter animation — no GSAP dependency.
+    // Uses requestAnimationFrame so it always fires regardless of
+    // scroll position or parent visibility state.
+    const duration = 2000;
+    const start = performance.now() + 300; // 300ms delay
 
-    const trigger = ScrollTrigger.create({
-      trigger: el,
-      start: "top 85%",
-      once: true,
-      onEnter: () => {
-        const obj = { val: 0 };
-        gsap.to(obj, {
-          val: target,
-          duration: 2,
-          ease: "power2.out",
-          onUpdate: () => {
-            if (el) el.textContent = Math.floor(obj.val) + suffix;
-          },
-        });
-      },
-    });
-
-    return () => {
-      trigger.kill();
+    let rafId: number;
+    const animate = (now: number) => {
+      if (now < start) {
+        rafId = requestAnimationFrame(animate);
+        return;
+      }
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.floor(eased * target);
+      el.textContent = current + suffix;
+      if (progress < 1) {
+        rafId = requestAnimationFrame(animate);
+      } else {
+        el.textContent = target + suffix;
+      }
     };
+
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
   }, [target, suffix]);
 
   return <span ref={ref}>0{suffix}</span>;
@@ -189,24 +194,7 @@ export default function About() {
     return () => { trigger.kill(); };
   }, []);
 
-  // Stats stagger animation
-  useEffect(() => {
-    const el = statsRef.current;
-    if (!el) return;
-
-    const items = el.querySelectorAll(".stat-card");
-    gsap.set(items, { opacity: 0, y: 30 });
-
-    const trigger = ScrollTrigger.create({
-      trigger: el,
-      start: "top 85%",
-      once: true,
-      onEnter: () => {
-        gsap.to(items, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: "power3.out" });
-      },
-    });
-    return () => { trigger.kill(); };
-  }, []);
+  // Stats — no scroll animation needed; counters animate on mount.
 
   return (
     <section id="about" className="relative py-12 sm:py-20 md:py-28" ref={sectionRef}>
@@ -468,7 +456,6 @@ export default function About() {
               key={stat.label}
               aria-label={`${stat.label}: ${stat.value}${stat.suffix}`}
               className="stat-card relative group"
-              style={{ opacity: 0 }}
             >
               <div className="glass rounded-2xl p-3 sm:p-6 text-center border-brand/10 hover:border-brand/30 transition-all duration-500 overflow-hidden hover:-translate-y-1">
                 {/* Hover gradient */}
