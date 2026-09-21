@@ -147,6 +147,7 @@ model Certificate {
   student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   programName       String
   studentName       String
+  idNumber          String?
   issueDate         DateTime @default(now())
   certificateNumber String   @unique
   signedBy          String?

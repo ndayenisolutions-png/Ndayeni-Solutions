@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     if (session.role !== "super" && session.role !== "admin" && session.role !== "admissions") {
       return NextResponse.json({ ok: false, error: "Only super/admin/admissions roles can issue manual certificates." }, { status: 403 });
     }
-    const { fullName, programName, issueDate, signedBy, studentId, email } = body;
+    const { fullName, programName, issueDate, signedBy, studentId, email, idNumber } = body;
     if (!fullName || !programName) {
       return NextResponse.json(
         { ok: false, error: "fullName and programName are required." },
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
           email: email?.trim() || `manual-${Date.now()}@ndayeni.local`,
           phone: "",
           program: programName,
+          idNumber: idNumber?.trim() || null,
           status: "completed",
           progress: 100,
           completedAt: new Date(),
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
         studentId: student.id,
         programName,
         studentName: String(fullName).trim(),
+        idNumber: idNumber?.trim() || student.idNumber || null,
         issueDate: issueDate ? new Date(issueDate) : new Date(),
         certificateNumber: generateCertNumber(),
         signedBy: signedBy || DEFAULT_SIGNATORY,
@@ -134,6 +136,7 @@ export async function POST(req: NextRequest) {
       studentId,
       programName: student.program,
       studentName: student.fullName,
+      idNumber: student.idNumber || null,
       certificateNumber: generateCertNumber(),
       signedBy: signedBy || DEFAULT_SIGNATORY,
     },

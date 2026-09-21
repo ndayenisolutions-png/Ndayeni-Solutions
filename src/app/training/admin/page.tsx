@@ -302,6 +302,81 @@ export default function AdminPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Analytics Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-8">
+                {/* Student Status Distribution */}
+                <div className="glass rounded-xl p-5 border-brand/10">
+                  <h3 className="text-warm-white font-semibold text-sm mb-4">Student Status Distribution</h3>
+                  <div className="space-y-2.5">
+                    {statusOptions.map(status => {
+                      const count = students.filter(s => s.status === status).length;
+                      const pct = students.length > 0 ? Math.round((count / students.length) * 100) : 0;
+                      const colors: Record<string, string> = {
+                        applied: "bg-yellow-400", "under-review": "bg-blue-400", "info-required": "bg-orange-400",
+                        accepted: "bg-cyan-400", enrolled: "bg-indigo-400", active: "bg-green-400",
+                        completed: "bg-emerald-400", rejected: "bg-red-400", withdrawn: "bg-gray-400", deferred: "bg-purple-400",
+                      };
+                      return (
+                        <div key={status} className="flex items-center gap-3">
+                          <span className="text-text-muted text-xs w-24 capitalize flex-shrink-0">{status}</span>
+                          <div className="flex-1 h-6 bg-dark-deep/60 rounded-full overflow-hidden">
+                            <div className={`h-full ${colors[status] || "bg-brand"} rounded-full transition-all duration-700`} style={{ width: `${Math.max(pct, count > 0 ? 8 : 0)}%` }} />
+                          </div>
+                          <span className="text-warm-white text-xs font-bold w-8 text-right">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Applications Over Time (by month) */}
+                <div className="glass rounded-xl p-5 border-brand/10">
+                  <h3 className="text-warm-white font-semibold text-sm mb-4">Applications Timeline</h3>
+                  {(() => {
+                    const months: Record<string, number> = {};
+                    students.forEach(s => {
+                      const d = new Date(s.createdAt);
+                      const key = `${d.toLocaleString("en", { month: "short" })} ${d.getFullYear()}`;
+                      months[key] = (months[key] || 0) + 1;
+                    });
+                    const entries = Object.entries(months).slice(-6);
+                    const max = Math.max(...entries.map(([, v]) => v), 1);
+                    return (
+                      <div className="flex items-end justify-between gap-2 h-32">
+                        {entries.length > 0 ? entries.map(([month, count]) => (
+                          <div key={month} className="flex flex-col items-center gap-1 flex-1">
+                            <span className="text-warm-white text-xs font-bold">{count}</span>
+                            <div className="w-full bg-gradient-to-t from-brand to-brand-light rounded-t-md transition-all duration-700" style={{ height: `${(count / max) * 100}%`, minHeight: "4px" }} />
+                            <span className="text-text-muted text-[10px]">{month}</span>
+                          </div>
+                        )) : <p className="text-text-muted text-sm m-auto">No data yet</p>}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Course Enrollment */}
+              <div className="glass rounded-xl p-5 border-brand/10 mb-8">
+                <h3 className="text-warm-white font-semibold text-sm mb-4">Course Enrollment</h3>
+                <div className="space-y-2.5">
+                  {courses.map(c => {
+                    const count = students.filter(s => String(s.selectedCourses || s.program || "").includes(c.title) || s.courseId === c.id).length;
+                    const pct = students.length > 0 ? Math.round((count / students.length) * 100) : 0;
+                    return (
+                      <div key={c.id} className="flex items-center gap-3">
+                        <span className="text-text-muted text-xs w-48 flex-shrink-0 truncate">{c.title}</span>
+                        <div className="flex-1 h-6 bg-dark-deep/60 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-accent to-cyan-400 rounded-full transition-all duration-700" style={{ width: `${Math.max(pct, count > 0 ? 8 : 0)}%` }} />
+                        </div>
+                        <span className="text-warm-white text-xs font-bold w-8 text-right">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <h2 className="text-warm-white font-semibold text-base mb-4">Quick Actions</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {quickActions.map(a => (
@@ -450,7 +525,7 @@ export default function AdminPage() {
                   <Button onClick={() => setShowManualCert(!showManualCert)} variant="outline" className="border-brand/30 text-brand hover:bg-brand/10 text-xs px-4 py-2 rounded-lg">{showManualCert ? "Cancel" : "+ Generate Certificate for Past Student"}</Button>
                 </div>
               )}
-              {showManualCert && <ManualCertForm onGenerated={(certId) => { setShowManualCert(false); if (certId) window.open(`/training/certificate/${certId}`, "_blank"); }} />}
+              {showManualCert && <ManualCertForm courses={courses} onGenerated={(certId) => { setShowManualCert(false); if (certId) window.open(`/training/certificate/${certId}`, "_blank"); }} />}
               <div className="glass rounded-xl border-brand/10 overflow-hidden">
                 <div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead><tr className="border-b border-dark-border/30 text-text-muted text-xs uppercase tracking-wider"><th className="text-left p-3">Student</th><th className="text-left p-3 hidden sm:table-cell">Course</th><th className="text-left p-3">Status</th><th className="text-left p-3">Certificate</th><th className="text-right p-3">Actions</th></tr></thead>
@@ -575,8 +650,8 @@ function AddUserForm({ onCreated }: { onCreated: () => void }) {
   );
 }
 
-function ManualCertForm({ onGenerated }: { onGenerated: (certId: string | undefined | null) => void }) {
-  const [form, setForm] = useState({ fullName: "", programName: "", issueDate: new Date().toISOString().split("T")[0] });
+function ManualCertForm({ onGenerated, courses }: { onGenerated: (certId: string | undefined | null) => void; courses: Course[] }) {
+  const [form, setForm] = useState({ fullName: "", idNumber: "", programName: "", issueDate: new Date().toISOString().split("T")[0] });
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const handleCreate = async (e: React.FormEvent) => {
@@ -588,12 +663,16 @@ function ManualCertForm({ onGenerated }: { onGenerated: (certId: string | undefi
     } catch (err) { setError(err instanceof Error ? err.message : "Failed."); } finally { setCreating(false); }
   };
   return (
-    <form onSubmit={handleCreate} className="glass rounded-xl p-4 border-brand/10 mb-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
+    <form onSubmit={handleCreate} className="glass rounded-xl p-4 border-brand/10 mb-4 grid grid-cols-1 sm:grid-cols-5 gap-3">
       <Input value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} placeholder="Student full name" required className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" />
-      <Input value={form.programName} onChange={e => setForm({ ...form, programName: e.target.value })} placeholder="Course/program completed" required className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" />
+      <Input value={form.idNumber} onChange={e => setForm({ ...form, idNumber: e.target.value })} placeholder="ID number" className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" />
+      <select value={form.programName} onChange={e => setForm({ ...form, programName: e.target.value })} required className="bg-dark-deep/60 border border-dark-border/50 text-warm-white rounded-md px-3 h-11 text-sm">
+        <option value="">Select course…</option>
+        {courses.map(c => <option key={c.id} value={c.title}>{c.title} ({c.code})</option>)}
+      </select>
       <Input type="date" value={form.issueDate} onChange={e => setForm({ ...form, issueDate: e.target.value })} className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" />
-      <Button type="submit" disabled={creating} className="bg-gradient-to-r from-brand to-brand-light text-dark-deep font-semibold h-11 rounded-lg">{creating ? "Generating..." : "Generate Certificate"}</Button>
-      {error && <p className="text-red-400 text-sm sm:col-span-4">{error}</p>}
+      <Button type="submit" disabled={creating} className="bg-gradient-to-r from-brand to-brand-light text-dark-deep font-semibold h-11 rounded-lg">{creating ? "Generating..." : "Generate"}</Button>
+      {error && <p className="text-red-400 text-sm sm:col-span-5">{error}</p>}
     </form>
   );
 }

@@ -10,6 +10,7 @@ type Cert = {
   certificateNumber: string;
   studentName: string;
   programName: string;
+  idNumber?: string;
   issueDate: string;
 } | null;
 
@@ -71,6 +72,9 @@ export default function CertificatePage() {
           <h2 className="text-blue-900 font-bold text-xl sm:text-2xl lg:text-3xl mb-2" style={{ fontFamily: "Georgia, serif" }}>
             {cert.studentName}
           </h2>
+          {cert.idNumber && (
+            <p className="text-gray-500 text-xs sm:text-sm mb-2">ID Number: {cert.idNumber}</p>
+          )}
           <p className="text-gray-600 text-xs sm:text-sm mb-2">has successfully completed the</p>
           <p className="text-blue-900 font-semibold text-base sm:text-lg lg:text-xl mb-6">
             {cert.programName}
