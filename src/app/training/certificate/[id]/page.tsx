@@ -48,30 +48,12 @@ export default function CertificatePage() {
 
   return (
     <div className="min-h-screen bg-dark-deep flex flex-col items-center justify-center p-4">
-      {/* Certificate — A4 Landscape (297mm × 210mm) */}
+      {/* Certificate — A4 Landscape */}
       <div id="certificate" className="bg-white rounded-lg shadow-2xl relative overflow-hidden" style={{ width: "297mm", height: "210mm", maxWidth: "100%", aspectRatio: "297 / 210" }}>
-        {/* Decorative border — gold outer, dark blue inner */}
+
+        {/* Decorative border */}
         <div className="absolute inset-0 border-[3px] border-[#1e3a5f] rounded-lg" />
         <div className="absolute inset-[4px] border-2 border-[#c9a227] rounded-lg" />
-        <div className="absolute inset-[8px] border border-[#1e3a5f]/40 rounded-lg" />
-
-        {/* Header band — dark blue gradient with gold accent */}
-        <div className="absolute top-0 left-0 right-0 h-[50px] bg-gradient-to-r from-[#1e3a5f] via-[#2a4a72] to-[#1e3a5f] flex items-center justify-center">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#c9a227]" />
-          <p className="text-white/90 font-semibold text-[9px] sm:text-[11px] tracking-[0.3em] uppercase">Ndayeni Solutions Pty Ltd</p>
-        </div>
-
-        {/* Graduation hat — centered at top */}
-        <div className="absolute top-[14px] left-1/2 -translate-x-1/2 z-20">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#c9a227] to-[#e6c54e] flex items-center justify-center shadow-lg">
-            <GraduationCap className="w-8 h-8 text-[#1e3a5f]" />
-          </div>
-        </div>
-
-        {/* Bottom band — matching header */}
-        <div className="absolute bottom-0 left-0 right-0 h-[30px] bg-gradient-to-r from-[#1e3a5f] via-[#2a4a72] to-[#1e3a5f]">
-          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#c9a227]" />
-        </div>
 
         {/* Revoked stamp */}
         {isRevoked && (
@@ -81,16 +63,24 @@ export default function CertificatePage() {
         )}
 
         {/* Content */}
-        <div className="relative z-10 h-full flex flex-col items-center justify-center px-12 py-12 text-center">
+        <div className="relative z-10 h-full flex flex-col items-center justify-center px-12 py-14 text-center">
+
+          {/* Graduation hat — centered, above all text, with breathing room */}
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#c9a227] to-[#e6c54e] flex items-center justify-center shadow-lg mb-6 ring-4 ring-[#1e3a5f]/10">
+            <GraduationCap className="w-11 h-11 text-[#1e3a5f]" strokeWidth={1.5} />
+          </div>
+
+          {/* Company name */}
+          <p className="text-[#1e3a5f] font-semibold text-[11px] tracking-[0.3em] uppercase mb-2">Ndayeni Solutions Pty Ltd</p>
+
           {/* Title */}
-          <p className="text-[#1e3a5f] text-[10px] tracking-[0.25em] uppercase font-medium mb-1 mt-4">Digital Academy</p>
-          <h1 className="text-[#1e3a5f] font-bold text-3xl sm:text-4xl mb-2" style={{ fontFamily: "Georgia, serif" }}>
+          <h1 className="text-[#1e3a5f] font-bold text-3xl sm:text-4xl mb-3" style={{ fontFamily: "Georgia, serif" }}>
             Certificate of Completion
           </h1>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-px w-12 bg-[#c9a227]" />
+          <div className="flex items-center gap-2 mb-6">
+            <div className="h-px w-14 bg-[#c9a227]" />
             <div className="w-1.5 h-1.5 rounded-full bg-[#c9a227]" />
-            <div className="h-px w-12 bg-[#c9a227]" />
+            <div className="h-px w-14 bg-[#c9a227]" />
           </div>
 
           {/* Student name */}
@@ -109,7 +99,7 @@ export default function CertificatePage() {
           {modules.length > 0 && (
             <div className="mt-4 mb-4">
               <p className="text-gray-400 text-[10px] uppercase tracking-wider mb-2">Modules Completed</p>
-              <div className="flex flex-wrap justify-center gap-1.5 max-w-md">
+              <div className="flex flex-wrap justify-center gap-1.5 max-w-lg">
                 {modules.map((m, i) => (
                   <span key={i} className="text-[10px] text-[#1e3a5f] bg-[#f0f4f8] border border-[#1e3a5f]/20 rounded-full px-2.5 py-1 flex items-center gap-1">
                     <Check className="w-2.5 h-2.5 text-[#c9a227]" />
@@ -160,7 +150,7 @@ export default function CertificatePage() {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-4 mt-6">
+      <div className="flex items-center gap-4 mt-6 no-print">
         <button onClick={() => window.print()} className="flex items-center gap-2 bg-gradient-to-r from-brand to-brand-light text-dark-deep font-semibold px-6 py-3 rounded-full text-sm hover:shadow-lg transition-all">
           <Download className="w-4 h-4" /> Download / Print
         </button>
@@ -182,7 +172,7 @@ export default function CertificatePage() {
             box-shadow: none;
             border-radius: 0;
           }
-          button, a, .no-print { display: none !important; }
+          .no-print { display: none !important; }
           @page { size: A4 landscape; margin: 0; }
           html, body { margin: 0; padding: 0; }
         }
