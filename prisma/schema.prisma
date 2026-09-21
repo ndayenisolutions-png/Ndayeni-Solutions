@@ -41,31 +41,42 @@ model AcademyUser {
 }
 
 model Student {
-  id              String        @id @default(cuid())
-  fullName        String
-  email           String
-  phone           String
-  idNumber        String?
-  gender          String?
-  age             String?
-  nationality     String?
-  address         String?
-  program         String
+  id                  String        @id @default(cuid())
+  applicationRef      String?
+  // Personal
+  fullName            String
+  email               String
+  phone               String
+  idNumber            String?
+  dateOfBirth         String?
+  gender              String?
+  nationality         String?
+  address             String?
+  // Course
+  selectedCourses     String?
+  preferredStartDate  String?
+  preferredMode       String?
+  // Education & Background
+  highestEducation    String?
+  employmentStatus    String?
+  previousTraining    String?
+  relevantExperience  String?
   // Next of kin
   nextOfKinName       String?
   nextOfKinRelationship String?
   nextOfKinPhone      String?
   nextOfKinEmail      String?
-  // Application
-  selectedCourses String?
-  message         String?
-  status          String        @default("applied")
-  progress        Int           @default(0)
-  enrolledAt      DateTime?
-  completedAt     DateTime?
-  notes           String?
-  createdAt       DateTime      @default(now())
-  certificates    Certificate[]
+  // Legacy / admin
+  program             String
+  message             String?
+  termsAgreed         Boolean       @default(false)
+  status              String        @default("applied")
+  progress            Int           @default(0)
+  enrolledAt          DateTime?
+  completedAt         DateTime?
+  notes               String?
+  createdAt           DateTime      @default(now())
+  certificates        Certificate[]
 }
 
 model Certificate {
