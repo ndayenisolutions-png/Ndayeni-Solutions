@@ -1,4 +1,4 @@
-// Prisma schema for Ndayeni Solutions — includes the Digital Academy SMS
+// Prisma schema for Ndayeni Solutions — main site + Digital Academy SMS
 
 generator client {
   provider = "prisma-client-js"
@@ -27,21 +27,23 @@ model Post {
   updatedAt DateTime @updatedAt
 }
 
-// ─────────────────────────────────────────────────────
-// Ndayeni Solutions Digital Academy — Student Management
-// ─────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+// Ndayeni Solutions Digital Academy — Student Management System
+// ─────────────────────────────────────────────────────────────────
 
 model AcademyUser {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
   name         String
-  role         String   @default("admin") // "super" | "admin"
+  role         String   @default("admin") // super | admissions | training | readonly
+  active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 }
 
 model Student {
   id                  String        @id @default(cuid())
+  studentNumber       String?
   applicationRef      String?
   // Personal
   fullName            String
@@ -54,6 +56,7 @@ model Student {
   address             String?
   // Course
   selectedCourses     String?
+  courseId            String?
   preferredStartDate  String?
   preferredMode       String?
   // Education & Background
@@ -66,17 +69,76 @@ model Student {
   nextOfKinRelationship String?
   nextOfKinPhone      String?
   nextOfKinEmail      String?
-  // Legacy / admin
+  // Enrolment
+  intake              String?
+  enrolledAt          DateTime?
+  trainingStartDate   DateTime?
+  expectedCompletion  DateTime?
+  // Admin
   program             String
   message             String?
   termsAgreed         Boolean       @default(false)
   status              String        @default("applied")
-  progress            Int           @default(0)
-  enrolledAt          DateTime?
-  completedAt         DateTime?
-  notes               String?
-  createdAt           DateTime      @default(now())
-  certificates        Certificate[]
+  // applied → under-review → info-required → accepted → enrolled → active → completed
+  // also: rejected, withdrawn, deferred, terminated
+  progress            Int           @default(0)  // 0–100
+  notes              String?
+  completedAt        DateTime?
+  createdAt          DateTime      @default(now())
+  // Relations
+  certificates       Certificate[]
+  attendances        Attendance[]
+  assessments        Assessment[]
+  auditLogs          AuditLog[]
+}
+
+model Course {
+  id               String   @id @default(cuid())
+  code             String   @unique
+  title            String
+  description       String
+  duration         String
+  deliveryMethod   String
+  entryRequirements String?
+  fee              String?
+  active           Boolean  @default(true)
+  maxStudents      Int?
+  createdAt        DateTime @default(now())
+  modules          Module[]
+}
+
+model Module {
+  id               String   @id @default(cuid())
+  courseId          String
+  course           Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?
+  duration         String?
+  order            Int      @default(0)
+  learningObjectives String?
+  active           Boolean  @default(true)
+}
+
+model Attendance {
+  id           String   @id @default(cuid())
+  studentId    String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date        DateTime
+  status      String   // present | absent | excused
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model Assessment {
+  id           String   @id @default(cuid())
+  studentId    String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  moduleTitle  String
+  date        DateTime   @default(now())
+  result      String    // pass | not-yet-competent
+  mark        String?
+  comments    String?
+  createdAt   DateTime @default(now())
 }
 
 model Certificate {
@@ -85,6 +147,17 @@ model Certificate {
   student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   programName       String
   studentName       String
-  issueDate        DateTime @default(now())
+  issueDate         DateTime @default(now())
   certificateNumber String   @unique
+  signedBy          String?
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  studentId   String?
+  student     Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  action      String
+  details     String?
+  timestamp   DateTime @default(now())
 }

@@ -233,3 +233,96 @@ Stage Summary:
 - Bottom trust element (Google rating badge) rendered exactly as specified.
 - Component is self-contained and does not require any new dependencies.
 - Next action (out of scope for this task): import `<Testimonials />` into src/app/page.tsx (e.g. after BusinessSolutions / CarePlans and before About, or wherever social proof should appear) when the page composition is updated.
+
+---
+Task ID: SMS-API
+Agent: general-purpose (sub agent)
+Task: Build SMS API routes for the Ndayeni Solutions Digital Academy Student Management System (8 route files: students, courses, attendance, assessments, certificate, audit, reports, users).
+
+Work Log:
+- Read worklog.md, prisma/schema.prisma, src/lib/academy-auth.ts, src/lib/academy-session.ts, src/lib/db.ts, and existing routes (login, apply, students, users, certificate) to ground the implementation in the actual schema and helper APIs.
+- Prisma models confirmed: AcademyUser, Student, Course, Module, Attendance, Assessment, Certificate, AuditLog (SQLite datasource).
+
+Files created / updated (all routes use `export const dynamic = "force-dynamic"`, `import { db } from "@/lib/db"`, `import { getSession } from "@/lib/academy-session"`, and return JSON `{ ok: boolean, ... }`):
+
+1. UPDATED src/app/api/academy/students/route.ts
+   - GET: list students with search (q param matches fullName / email / studentNumber / applicationRef / phone via Prisma `contains` — SQLite is case-insensitive for ASCII LIKE) and filters (status, courseId).
+   - POST actions:
+     - "create": manually create a student (requires fullName, email, program).
+     - "update": update any student field (personal, course, education, kin, enrolment, notes, status, progress). Status-driven timestamps (enrolledAt, completedAt) applied automatically.
+     - "delete": super/admin only, deletes student (AuditLog.studentId set to null because the FK cascade is SetNull — we pass null and store the deleted student info in `details`).
+     - "convert": converts an "accepted" application → "enrolled" student, generating studentNumber `NSA-YYYY-NNNN` via a count-based sequence.
+   - Wrote an AuditLog entry on every create/update/delete/convert. On status change, a dedicated `student.status_change` audit is logged showing the from→to transition.
+   - Role gating: write actions require `super | admin | admissions | training`; delete additionally requires `super | admin`.
+
+2. CREATED src/app/api/academy/courses/route.ts
+   - GET: list all courses with their modules (`include: { modules: { orderBy: { order: "asc" } } }`). Optional `?active=true` filter.
+   - POST actions (super/admin only):
+     - "create": create a course — enforces unique `code`, requires code/title/description.
+     - "update": update any course field (code, title, description, duration, deliveryMethod, entryRequirements, fee, maxStudents, active).
+     - "delete": delete a course (cascade-deletes its modules via Prisma relation onDelete: Cascade).
+     - "addModule": add a module to a course (requires courseId, title; optional description/duration/order/learningObjectives/active).
+     - "updateModule": update a module by id.
+     - "deleteModule": delete a module by id.
+
+3. CREATED src/app/api/academy/attendance/route.ts
+   - GET (auth): list attendance filtered by `?studentId=` and/or `?date=YYYY-MM-DD` (uses a gte/lte DateTime range for the day, UTC). Includes the related student (id, fullName, studentNumber, email) for display.
+   - POST (auth, super/admin/training): create or update an attendance record. Validates `status` against present|absent|excused. Upsert logic: finds the existing record for the same student+day (no unique constraint in schema, so a manual findFirst) and updates it; otherwise creates. Date stored at the start of the day (UTC).
+
+4. CREATED src/app/api/academy/assessments/route.ts
+   - GET (auth): list assessments filtered by `?studentId=`. Includes related student (id, fullName, studentNumber, email). Ordered by date desc.
+   - POST (auth, super/admin/training): create or update an assessment. Validates `result` against pass|not-yet-competent. If `id` is provided → update existing (only the supplied fields are changed). Otherwise create new (requires studentId, moduleTitle, result; optional date, mark, comments).
+
+5. UPDATED src/app/api/academy/certificate/route.ts
+   - GET (PUBLIC, no auth): view a certificate by `?id=` OR `?certificateNumber=`. Returns the certificate or 404.
+   - POST (auth, super/admin/admissions):
+     - Default "issue" action: issues a certificate for an existing student (studentId required). Defaults signedBy to "Nhlakanipho Ntshangase, Founder & CEO". Sets student status=completed. Generates cert number `NSDA-YYYY-XXXXXX` (6 random alphanumeric chars). Logs `certificate.issue` audit entry. Returns `{ ok: true, certificate, alreadyExists: true }` if a cert already exists for the student.
+     - action="manual": manually issue a certificate for a past student (fullName + programName required; optional issueDate, signedBy, studentId, email). Find-or-create student (tries existing studentId, then matches by fullName contains, otherwise creates a minimal "completed" student record). Honors an explicit issueDate. Logs `certificate.manual_issue` audit entry.
+
+6. CREATED src/app/academy/audit/route.ts  (path: /api/academy/audit)
+   - GET (auth required): paginated audit logs. Query params: page (default 1), pageSize (default 50, capped at 100), action (substring match), studentId, userId. Returns `{ ok: true, logs, page, pageSize, total, totalPages }`. Uses Promise.all([count, findMany]) for efficiency.
+
+7. CREATED src/app/api/academy/reports/route.ts
+   - GET (auth required): returns dashboard stats object with all 8 counts requested:
+     - totalApplications: db.student.count() (every Student row originated from an application or manual entry)
+     - pendingApplications: status in ["applied","under-review","info-required"]
+     - acceptedApplications: status="accepted"
+     - rejectedApplications: status="rejected"
+     - enrolledStudents: status="enrolled"
+     - activeStudents: status="active"
+     - completedStudents: status="completed"
+     - certificatesIssued: db.certificate.count()
+   - All 8 counts run in parallel via Promise.all.
+
+8. UPDATED src/app/api/academy/users/route.ts
+   - Preserved existing GET (list users, returns public fields only), POST (create user, super only), DELETE (delete user, super only, cannot delete self).
+   - Added `active` to the public user fields selector (was previously omitted — schema has `active Boolean @default(true)`).
+   - Refactored POST to dispatch on `action`:
+     - action="create" (default when action omitted, keeps backward compatibility): super only, validates email/password/name, prevents duplicate emails, only super can assign role=super.
+     - action="update": updates name/role/active. Role gating via assertCanManageUser: super can do anything; users can edit themselves; non-super cannot promote anyone to super. Safety: super cannot demote themselves if they are the only remaining super.
+     - action="resetPassword": resets a user's password. Super can reset anyone's; non-super users can reset their own. Validates id + password. Logs `user.reset_password` audit.
+   - DELETE: hardened to prevent deleting the only remaining super user (safety against lockout).
+   - All create/update/delete/reset actions now write AuditLog entries with descriptive details.
+
+Quality & type-safety notes:
+- All 8 routes verified clean against `npx tsc --noEmit` (no errors in any file under src/app/api/academy/).
+- Pre-existing TS errors in unrelated files (src/app/api/contact/route.ts `const` assertions, src/components/ndayeni/HeroScene.tsx three.js typing, Ndayeni-Solutions/* and skills/* subdirs) are not in scope of this task and were left untouched.
+- Two narrow TS fixes were needed during implementation:
+  1. Certificate route: refactored find-or-create student from `let student = null` (TS inferred type `null`-only) into a self-invoked async IIFE that returns `Student`, so the type is narrowed to `Student` for the subsequent property accesses.
+  2. Certificate route GET: replaced `let cert = null` (same TS pitfall) with a chained ternary `id ? findUnique : certificateNumber ? findUnique : null`.
+  3. Students route: changed `logAudit` opts typing from `studentId?: string` to `studentId?: string | null` so that the delete audit (which logs `studentId: null` because the FK is SetNull on delete) typechecks.
+
+API surface summary (route path → method(s) → action(s)):
+- /api/academy/students      GET (list+search+filter) | POST {action: create|update|delete|convert}
+- /api/academy/courses       GET (list w/ modules)     | POST {action: create|update|delete|addModule|updateModule|deleteModule}
+- /api/academy/attendance   GET (?studentId|?date)    | POST (upsert by student+date)
+- /api/academy/assessments   GET (?studentId)          | POST (create OR update by id)
+- /api/academy/certificate   GET (?id|?certificateNumber, public) | POST {action?: issue|manual}
+- /api/academy/audit         GET (paginated, ?action|?studentId|?userId)
+- /api/academy/reports       GET (dashboard stats)
+- /api/academy/users         GET | POST {action?: create|update|resetPassword} | DELETE ?id=
+
+Next actions / integration handoff:
+- Frontend pages can now consume these endpoints directly. Recommended next step is wiring the admin dashboard pages (students table, course catalog, attendance/assessment capture, certificate viewer + manual issue form) to call these routes.
+- Consider adding a Prisma migration / db seed for sample courses & modules so the dashboard has data on first load.
+- (Optional) Tighten attendance upsert by adding a `@@unique([studentId, date])` constraint on the Attendance model in a future schema migration — current code does a manual `findFirst` to dedupe by day.

@@ -47,8 +47,8 @@ export default function CertificatePage() {
 
   return (
     <div className="min-h-screen bg-dark-deep flex flex-col items-center justify-center p-4">
-      {/* Certificate */}
-      <div id="certificate" className="bg-white rounded-lg shadow-2xl p-8 sm:p-12 lg:p-16 max-w-3xl w-full relative overflow-hidden" style={{ aspectRatio: "1.414 / 1" }}>
+      {/* Certificate — A4 Landscape orientation */}
+      <div id="certificate" className="bg-white rounded-lg shadow-2xl p-8 sm:p-10 lg:p-12 max-w-4xl w-full relative overflow-hidden" style={{ aspectRatio: "297 / 210" }}>
         {/* Decorative border */}
         <div className="absolute inset-2 sm:inset-4 border-2 sm:border-4 border-double border-blue-900 rounded-lg" />
 
@@ -82,8 +82,8 @@ export default function CertificatePage() {
           <div className="flex items-end justify-between w-full max-w-md mt-4">
             <div className="text-left">
               <div className="border-t border-gray-400 pt-1 w-32 sm:w-40">
-                <p className="text-blue-900 font-semibold text-[10px] sm:text-xs">Nhlakanipho Ntshangase</p>
-                <p className="text-gray-500 text-[8px] sm:text-[10px]">Founder & Director</p>
+                <p className="text-blue-900 font-semibold text-[10px] sm:text-xs">{cert.signedBy || "Nhlakanipho Ntshangase"}</p>
+                <p className="text-gray-500 text-[8px] sm:text-[10px]">Founder & CEO</p>
               </div>
             </div>
             <div className="text-center">
