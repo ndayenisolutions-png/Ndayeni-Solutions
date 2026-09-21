@@ -16,6 +16,7 @@ const navLinks = [
   { label: "Solutions", href: "#solutions" },
   { label: "About", href: "#about" },
   { label: "Contact", href: "#contact" },
+  { label: "Training", href: "/training" },
 ];
 
 export default function Navbar() {
@@ -100,6 +101,10 @@ export default function Navbar() {
   // Smooth-scroll to section using GSAP + close menu
   const handleNavClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+      // Real routes (starting with /) navigate normally — don't intercept
+      if (href.startsWith("/") && !href.startsWith("/#")) {
+        return;
+      }
       e.preventDefault();
       setIsMobileOpen(false);
       // Defer the scroll until after the menu starts closing
