@@ -35,6 +35,7 @@ export default function ApplyPage() {
   const [employmentStatus, setEmploymentStatus] = useState("");
   const [termsAgreed, setTermsAgreed] = useState(false);
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     fullName: "", email: "", phone: "", idNumber: "", dateOfBirth: "",
     nationality: "South African", address: "", preferredStartDate: "",
@@ -47,28 +48,50 @@ export default function ApplyPage() {
     setSelectedCourses(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]);
   };
 
+  const validateField = (name: string, value: string) => {
+    if (!value) return "";
+    if (name === "fullName" && value.trim().length < 2) return "Name must be at least 2 characters.";
+    if (name === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Please enter a valid email address.";
+    if (name === "phone" && value.replace(/\s/g, "").length < 10) return "Please enter a valid phone number.";
+    if (name === "nextOfKinEmail" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Please enter a valid email.";
+    return "";
+  };
+  const updateField = (name: string, value: string) => {
+    setForm({ ...form, [name]: value });
+    setFieldErrors(prev => ({ ...prev, [name]: validateField(name, value) }));
+  };
+
   const canProceed = () => {
-    if (step === 0) return form.fullName && form.email && form.phone;
+    if (step === 0) {
+      return form.fullName?.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) && form.phone?.replace(/\s/g, "").length >= 10;
+    }
     if (step === 1) return selectedCourses.length > 0;
     return true;
   };
 
   const handleSubmit = async () => {
-    if (!termsAgreed) { setError("Please agree to the terms and privacy notice to continue."); return; }
+    const errs: Record<string, string> = {};
+    if (!form.fullName?.trim() || form.fullName.trim().length < 2) errs.fullName = "Please enter your full name (minimum 2 characters).";
+    if (!form.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Please enter a valid email address.";
+    if (!form.phone?.trim() || form.phone.replace(/\s/g, "").length < 10) errs.phone = "Please enter a valid phone number.";
+    if (!termsAgreed) { setError("Please agree to the terms and privacy notice to submit."); return; }
     if (selectedCourses.length === 0) { setError("Please select at least one course."); return; }
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) { setError("Please fix the errors above before submitting."); return; }
     setSubmitting(true);
     setError(null);
     try {
       const res = await fetch("/api/academy/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form, gender, selectedCourses, preferredMode, highestEducation,
-          employmentStatus, termsAgreed,
-        }),
+        body: JSON.stringify({ ...form, gender, selectedCourses, preferredMode, highestEducation, employmentStatus, termsAgreed }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Something went wrong.");
+      if (!res.ok || !data.ok) {
+        if (data.errors) setError(data.errors.join(" "));
+        else setError(data.error || "Something went wrong.");
+        return;
+      }
       setRef(data.applicationRef || "");
       setSubmitted(true);
     } catch (err) {
@@ -153,19 +176,34 @@ export default function ApplyPage() {
               <div className="space-y-4">
                 <h3 className="text-warm-white font-bold text-sm uppercase tracking-wider pb-2 border-b border-dark-border/30">Personal Details</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div><Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Full Name *</Label><Input value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} placeholder="John Doe" className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" /></div>
-                  <div><Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Email *</Label><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="john@example.com" className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" /></div>
+                  <div>
+                    <Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Full Name *</Label>
+                    <Input value={form.fullName} onChange={e => updateField("fullName", e.target.value)} placeholder="John Doe" className={`bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm ${fieldErrors.fullName ? "border-red-500/50" : ""}`} />
+                    {fieldErrors.fullName && <p className="text-red-400 text-[10px] mt-1">{fieldErrors.fullName}</p>}
+                  </div>
+                  <div>
+                    <Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Email *</Label>
+                    <Input type="email" value={form.email} onChange={e => updateField("email", e.target.value)} placeholder="john@example.com" className={`bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm ${fieldErrors.email ? "border-red-500/50" : ""}`} />
+                    {fieldErrors.email && <p className="text-red-400 text-[10px] mt-1">{fieldErrors.email}</p>}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div><Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Phone *</Label><Input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+27 83 800 6989" className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" /></div>
-                  <div><Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">ID / Passport Number</Label><Input value={form.idNumber} onChange={e => setForm({ ...form, idNumber: e.target.value })} className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" /></div>
+                  <div>
+                    <Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Phone *</Label>
+                    <Input type="tel" value={form.phone} onChange={e => updateField("phone", e.target.value)} placeholder="+27 83 800 6989" className={`bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm ${fieldErrors.phone ? "border-red-500/50" : ""}`} />
+                    {fieldErrors.phone && <p className="text-red-400 text-[10px] mt-1">{fieldErrors.phone}</p>}
+                  </div>
+                  <div>
+                    <Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">ID / Passport Number</Label>
+                    <Input value={form.idNumber} onChange={e => updateField("idNumber", e.target.value)} className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" />
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div><Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Date of Birth</Label><Input type="date" value={form.dateOfBirth} onChange={e => setForm({ ...form, dateOfBirth: e.target.value })} className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" /></div>
+                  <div><Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Date of Birth</Label><Input type="date" max={new Date().toISOString().split("T")[0]} value={form.dateOfBirth} onChange={e => updateField("dateOfBirth", e.target.value)} className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" /></div>
                   <div><Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Gender</Label><select value={gender} onChange={e => setGender(e.target.value)} className="w-full h-11 bg-dark-deep/60 border border-dark-border/50 text-warm-white rounded-md px-3 text-sm cursor-pointer"><option value="">Select…</option>{genderOptions.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
-                  <div><Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Nationality</Label><Input value={form.nationality} onChange={e => setForm({ ...form, nationality: e.target.value })} className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" /></div>
+                  <div><Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Nationality</Label><Input value={form.nationality} onChange={e => updateField("nationality", e.target.value)} className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" /></div>
                 </div>
-                <div><Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Residential Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Suburb, City, Province" className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" /></div>
+                <div><Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Residential Address</Label><Input value={form.address} onChange={e => updateField("address", e.target.value)} placeholder="Suburb, City, Province" className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" /></div>
               </div>
             )}
 
