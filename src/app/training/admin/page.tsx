@@ -16,18 +16,18 @@ import Link from "next/link";
 type SessionUser = { id: string; email: string; name: string; role: string };
 type Student = Record<string, unknown> & {
   id: string; fullName: string; email: string; phone: string;
-  status: string; progress: number; applicationRef: string?;
-  studentNumber: string?; selectedCourses: string?; courseId: string?;
-  gender: string?; dateOfBirth: string?; nationality: string?;
-  idNumber: string?; address: string?; highestEducation: string?;
-  employmentStatus: string?; nextOfKinName: string?; nextOfKinPhone: string?;
-  nextOfKinEmail: string?; nextOfKinRelationship: string?;
-  preferredStartDate: string?; preferredMode: string?;
-  previousTraining: string?; relevantExperience: string?;
-  notes: string?; createdAt: string; enrolledAt: string?;
-  completedAt: string?; certificates: { id: string; certificateNumber: string }[];
+  status: string; progress: number; applicationRef?: string;
+  studentNumber?: string; selectedCourses?: string; courseId?: string;
+  gender?: string; dateOfBirth?: string; nationality?: string;
+  idNumber?: string; address?: string; highestEducation?: string;
+  employmentStatus?: string; nextOfKinName?: string; nextOfKinPhone?: string;
+  nextOfKinEmail?: string; nextOfKinRelationship?: string;
+  preferredStartDate?: string; preferredMode?: string;
+  previousTraining?: string; relevantExperience?: string;
+  notes?: string; createdAt: string; enrolledAt?: string;
+  completedAt?: string; certificates?: { id: string; certificateNumber: string }[];
 };
-type Course = { id: string; code: string; title: string; description: string; duration: string; deliveryMethod: string; entryRequirements: string?; active: boolean; modules: { id: string; title: string }[] };
+type Course = { id: string; code: string; title: string; description: string; duration: string; deliveryMethod: string; entryRequirements?: string; active: boolean; modules: { id: string; title: string }[] };
 type AcademyUser = { id: string; email: string; name: string; role: string; active: boolean; createdAt: string };
 
 const navItems = [
@@ -121,7 +121,7 @@ export default function AdminPage() {
     setUser(null);
   };
 
-  const api = async (url: string, opts?: RequestInit) => {
+  const api = async (url: string | undefined, opts?: RequestInit) => {
     const res = await fetch(url, opts);
     return res.json();
   };
@@ -149,7 +149,7 @@ export default function AdminPage() {
     if (data.ok) setStudents(data.students || []);
   };
 
-  const updateStudent = async (id: string, updates: Record<string, unknown>) => {
+  const updateStudent = async (id: string | undefined, updates: Record<string, unknown>) => {
     await api("/api/academy/students", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -159,7 +159,7 @@ export default function AdminPage() {
     setEditing(null);
   };
 
-  const convertStudent = async (id: string) => {
+  const convertStudent = async (id: string | undefined) => {
     await api("/api/academy/students", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -169,7 +169,7 @@ export default function AdminPage() {
     loadDashboard();
   };
 
-  const deleteStudent = async (id: string) => {
+  const deleteStudent = async (id: string | undefined) => {
     if (!confirm("Delete this student? This cannot be undone.")) return;
     await api("/api/academy/students", {
       method: "POST",
@@ -180,7 +180,7 @@ export default function AdminPage() {
     loadDashboard();
   };
 
-  const issueCertificate = async (studentId: string) => {
+  const issueCertificate = async (studentId: string | undefined) => {
     const data = await api("/api/academy/certificate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -575,7 +575,7 @@ function AddUserForm({ onCreated }: { onCreated: () => void }) {
   );
 }
 
-function ManualCertForm({ onGenerated }: { onGenerated: (certId: string | null) => void }) {
+function ManualCertForm({ onGenerated }: { onGenerated: (certId: string | undefined | null) => void }) {
   const [form, setForm] = useState({ fullName: "", programName: "", issueDate: new Date().toISOString().split("T")[0] });
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -598,7 +598,7 @@ function ManualCertForm({ onGenerated }: { onGenerated: (certId: string | null) 
   );
 }
 
-function EditModal({ student, onClose, onSave, courses }: { student: Student; onClose: () => void; onSave: (id: string, updates: Record<string, unknown>) => void; courses: Course[] }) {
+function EditModal({ student, onClose, onSave, courses }: { student: Student; onClose: () => void; onSave: (id: string | undefined, updates: Record<string, unknown>) => void; courses: Course[] }) {
   const [form, setForm] = useState({
     fullName: student.fullName || "", email: student.email || "", phone: student.phone || "",
     status: student.status || "applied", progress: student.progress || 0,
