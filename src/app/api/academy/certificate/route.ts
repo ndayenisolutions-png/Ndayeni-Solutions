@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/academy-session";
+import QRCode from "qrcode";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_SIGNATORY = "Nhlakanipho Ntshangase, Founder & CEO";
+const DEFAULT_SIGNATORY = "Nhlakanipho Ntshangase";
+const SIGNATORY_TITLE = "Founder & CEO";
 
-/** Generate a unique certificate number, e.g. NSDA-2025-A4F8K2 */
-function generateCertNumber(): string {
+/** Generate a unique certificate number: NDA-CERT-2026-00125 */
+async function generateCertNumber(): Promise<string> {
   const year = new Date().getFullYear();
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `NSDA-${year}-${random}`;
+  // Count existing certs this year to get a sequential number
+  const yearPrefix = `NDA-CERT-${year}-`;
+  const existing = await db.certificate.count({
+    where: { certificateNumber: { startsWith: yearPrefix } },
+  });
+  const seq = String(existing + 1).padStart(5, "0");
+  return `${yearPrefix}${seq}`;
 }
 
-// ─── GET — view a certificate by ID (public, no auth needed) ───
+/** Generate a QR code data URL encoding the verification URL */
+async function generateQRDataUrl(certificateNumber: string): Promise<string> {
+  const verifyUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "https://ndayenisolutions.co.za"}/training/verify/${certificateNumber}`;
+  return QRCode.toDataURL(verifyUrl, { width: 150, margin: 1, color: { dark: "#1e3a5f", light: "#ffffff" } });
+}
+
+// ─── GET — view a certificate by ID (public) ───
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
@@ -28,7 +41,19 @@ export async function GET(req: NextRequest) {
 
   if (!cert) return NextResponse.json({ ok: false, error: "Certificate not found." }, { status: 404 });
 
-  return NextResponse.json({ ok: true, certificate: cert });
+  // Generate QR code data URL
+  const qrDataUrl = await generateQRDataUrl(cert.certificateNumber);
+
+  return NextResponse.json({
+    ok: true,
+    certificate: {
+      ...cert,
+      signedBy: cert.signedBy || DEFAULT_SIGNATORY,
+      signatoryTitle: SIGNATORY_TITLE,
+      qrCode: qrDataUrl,
+      verifyUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "https://ndayenisolutions.co.za"}/training/verify/${cert.certificateNumber}`,
+    },
+  });
 }
 
 // ─── POST — issue a certificate OR generate a manual one for a past student ───
@@ -90,8 +115,9 @@ export async function POST(req: NextRequest) {
         studentName: String(fullName).trim(),
         idNumber: idNumber?.trim() || student.idNumber || null,
         issueDate: issueDate ? new Date(issueDate) : new Date(),
-        certificateNumber: generateCertNumber(),
+        certificateNumber: await generateCertNumber(),
         signedBy: signedBy || DEFAULT_SIGNATORY,
+        status: "active",
       },
     });
 
@@ -137,8 +163,9 @@ export async function POST(req: NextRequest) {
       programName: student.program,
       studentName: student.fullName,
       idNumber: student.idNumber || null,
-      certificateNumber: generateCertNumber(),
+      certificateNumber: await generateCertNumber(),
       signedBy: signedBy || DEFAULT_SIGNATORY,
+      status: "active",
     },
   });
 

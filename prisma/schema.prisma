@@ -151,6 +151,7 @@ model Certificate {
   issueDate         DateTime @default(now())
   certificateNumber String   @unique
   signedBy          String?
+  status            String   @default("active") // active | revoked | reissued | replaced
 }
 
 model AuditLog {
