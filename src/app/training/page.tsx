@@ -241,7 +241,7 @@ export default function TrainingPage() {
       <footer className="relative bg-dark-deep border-t border-dark-border/30 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-text-muted text-sm">© {new Date().getFullYear()} Ndayeni Solutions Pty Ltd — Digital Academy Division</p>
-          <p className="text-text-muted/50 text-xs mt-1">Based in Midrand · Servicing nationwide · <Link href="/" className="text-brand hover:underline">Back to website</Link></p>
+          <p className="text-text-muted/50 text-xs mt-1">Based in Midrand · Servicing nationwide</p>
         </div>
       </footer>
     </div>

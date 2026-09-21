@@ -20,7 +20,6 @@ const navLinks = [
 
 const trainingLinks = [
   { label: "Courses", href: "/training", desc: "View courses & modules" },
-  { label: "Apply", href: "/training/apply", desc: "Fill in the application form" },
   { label: "Admin", href: "/training/admin", desc: "Sign in to manage students" },
 ];
 

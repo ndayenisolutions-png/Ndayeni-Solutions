@@ -100,7 +100,9 @@ export default function ApplyPage() {
           </div>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/training"><Button variant="outline" className="border-brand/30 text-brand hover:bg-brand/10 px-6 py-4 rounded-full w-full sm:w-auto">Back to Courses</Button></Link>
-            <a href="/"><Button variant="outline" className="border-dark-border/50 text-text-muted hover:text-warm-white px-6 py-4 rounded-full w-full sm:w-auto">Back to Website</Button></a>
+            <Button onClick={() => { setSubmitted(false); setSelectedCourses([]); }} variant="outline" className="border-dark-border/50 text-text-muted hover:text-warm-white px-6 py-4 rounded-full">
+              Submit Another
+            </Button>
           </div>
         </div>
       </div>
