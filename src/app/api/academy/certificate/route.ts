@@ -44,6 +44,13 @@ export async function GET(req: NextRequest) {
   // Generate QR code data URL
   const qrDataUrl = await generateQRDataUrl(cert.certificateNumber);
 
+  // Fetch modules for this course (match by programName to course title)
+  const course = await db.course.findFirst({
+    where: { title: cert.programName },
+    include: { modules: { where: { active: true }, orderBy: { order: "asc" } } },
+  });
+  const modules = course?.modules?.map(m => m.title) || [];
+
   return NextResponse.json({
     ok: true,
     certificate: {
@@ -52,6 +59,7 @@ export async function GET(req: NextRequest) {
       signatoryTitle: SIGNATORY_TITLE,
       qrCode: qrDataUrl,
       verifyUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "https://ndayenisolutions.co.za"}/training/verify/${cert.certificateNumber}`,
+      modules,
     },
   });
 }
