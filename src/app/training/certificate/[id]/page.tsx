@@ -65,9 +65,9 @@ export default function CertificatePage() {
         {/* Content */}
         <div className="relative z-10 h-full flex flex-col items-center justify-center px-12 py-14 text-center">
 
-          {/* Graduation hat — centered, above all text, with breathing room */}
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#c9a227] to-[#e6c54e] flex items-center justify-center shadow-lg mb-6 ring-4 ring-[#1e3a5f]/10">
-            <GraduationCap className="w-11 h-11 text-[#1e3a5f]" strokeWidth={1.5} />
+          {/* Graduation hat — top left corner, standalone, navy */}
+          <div className="absolute top-8 left-10">
+            <GraduationCap className="w-14 h-14 text-[#1e3a5f]" strokeWidth={1.5} />
           </div>
 
           {/* Company name */}
