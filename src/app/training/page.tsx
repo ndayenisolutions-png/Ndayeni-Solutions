@@ -1,83 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Check, Send, GraduationCap, Monitor, Cpu, ShieldCheck, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  Monitor, FolderTree, FileText, Sheet, Presentation, Globe, Mail,
+  ShieldCheck, Cloud, Chrome, Palette, Megaphone, ArrowRight, Clock, Check,
+} from "lucide-react";
 
-const programs = [
-  {
-    icon: Monitor,
-    title: "Basic Computer Literacy",
-    desc: "Start from zero — learn to use a computer, navigate the internet, send emails and work with files.",
-    duration: "3–5 days",
-    level: "Beginner",
-  },
-  {
-    icon: Cpu,
-    title: "Microsoft Office & Productivity",
-    desc: "Master Word, Excel, PowerPoint and Outlook. Learn to create documents, spreadsheets and presentations efficiently.",
-    duration: "5 days",
-    level: "Beginner–Intermediate",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Basic Cybersecurity Awareness",
-    desc: "Understand online threats, phishing, passwords and how to protect yourself and your business from cyber attacks.",
-    duration: "2 days",
-    level: "All levels",
-  },
-  {
-    icon: GraduationCap,
-    title: "Web & Graphic Design Fundamentals",
-    desc: "Introduction to website design, branding principles and basic graphic design tools for aspiring creatives.",
-    duration: "5 days",
-    level: "Intermediate",
-  },
+const modules = [
+  { icon: Monitor, title: "1. Computer Fundamentals", topics: ["Introduction to computers", "Computer hardware and peripherals", "Operating systems", "Keyboard and mouse skills", "Desktop and Windows navigation", "Basic computer settings"] },
+  { icon: FolderTree, title: "2. File & Document Management", topics: ["Creating and managing folders", "Saving, copying, moving and deleting files", "File types and extensions", "USB and external storage", "Basic file organisation and backup"] },
+  { icon: FileText, title: "3. Microsoft Word", topics: ["Creating and editing documents", "Text formatting", "Tables and images", "Page layout", "Headers and footers", "CVs, letters and business documents", "Printing and PDF creation"] },
+  { icon: Sheet, title: "4. Microsoft Excel", topics: ["Spreadsheets and worksheets", "Data entry and formatting", "Basic formulas and functions", "Sorting and filtering", "Basic charts", "Simple budgets, invoices and business records"] },
+  { icon: Presentation, title: "5. Microsoft PowerPoint", topics: ["Creating presentations", "Slide layouts and formatting", "Images, shapes and tables", "Presenting information", "Basic presentation design"] },
+  { icon: Globe, title: "6. Internet & Web Skills", topics: ["Using web browsers", "Effective internet searching", "Online research", "Downloading and uploading files", "Using online services", "Evaluating online information"] },
+  { icon: Mail, title: "7. Email & Digital Communication", topics: ["Creating and managing email accounts", "Sending and receiving emails", "Attachments", "Email organisation", "Email etiquette", "Professional email communication", "Calendars and online communication"] },
+  { icon: ShieldCheck, title: "8. Digital Safety & Cyber Awareness", topics: ["Strong passwords", "Two-factor authentication", "Phishing and scams", "Safe browsing", "Privacy and personal information", "Social engineering awareness", "Safe use of public Wi-Fi and devices"] },
+  { icon: Cloud, title: "9. Microsoft 365 & Cloud Productivity", topics: ["OneDrive", "Microsoft Teams", "Word, Excel and PowerPoint online", "Cloud file storage", "File sharing and collaboration", "Basic online teamwork"] },
+  { icon: Chrome, title: "10. Google Workspace & Online Productivity", topics: ["Gmail", "Google Drive", "Google Docs", "Google Sheets", "Google Slides", "Google Forms", "Online collaboration"] },
+  { icon: Palette, title: "11. Basic Graphic Design", topics: ["Design fundamentals", "Canva", "Creating posters and flyers", "Social media graphics", "Business cards", "Basic logo concepts", "Preparing designs for printing"] },
+  { icon: Megaphone, title: "12. Digital Marketing Fundamentals", topics: ["Social media basics", "Facebook business pages", "Instagram basics", "TikTok for business", "Basic content creation", "Basic online advertising concepts", "Introduction to Google Business Profile"] },
+];
+
+const programmes = [
+  { code: "NDY-DS01", title: "End User Computing", modules: "Modules 1–8", duration: "6 weeks", desc: "A comprehensive foundation in computing — from switching on a computer to using Word, Excel, the internet, email and staying safe online. Ideal for beginners entering the digital world." },
+  { code: "NDY-DS02", title: "Cloud & Online Productivity", modules: "Modules 9–10", duration: "1 week", desc: "Master Microsoft 365 (OneDrive, Teams, Office Online) and Google Workspace (Docs, Sheets, Drive). Learn cloud collaboration and online productivity tools used in modern workplaces." },
+  { code: "NDY-DS03", title: "Basic Graphic Design", modules: "Module 11", duration: "1 week", desc: "Learn design fundamentals using Canva. Create posters, flyers, social media graphics, business cards and basic logo concepts. Perfect for small business owners and aspiring creatives." },
+  { code: "NDY-DS04", title: "Digital Marketing Fundamentals", modules: "Module 12", duration: "1 week", desc: "Understand social media for business — Facebook, Instagram, TikTok, content creation, online advertising basics and Google Business Profile. Ideal for entrepreneurs and small business marketing." },
 ];
 
 export default function TrainingPage() {
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    idNumber: "",
-    address: "",
-    program: "",
-    message: "",
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/academy/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Something went wrong.");
-      setSubmitted(true);
-      setForm({ fullName: "", email: "", phone: "", idNumber: "", address: "", program: "", message: "" });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit application.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-dark-deep">
-      {/* Simple top bar */}
+      {/* Top bar */}
       <header className="sticky top-0 z-50 glass-strong border-b border-dark-border/30 py-3">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
@@ -89,22 +44,21 @@ export default function TrainingPage() {
               <span className="text-text-muted text-[9px] sm:text-[10px] tracking-[0.15em] uppercase leading-tight">A division of Ndayeni Solutions Pty Ltd</span>
             </div>
           </Link>
-          <Link href="/" className="text-text-muted hover:text-brand text-xs sm:text-sm transition-colors">
-            ← Back to website
+          <Link href="/training/admin" className="text-text-muted hover:text-brand text-xs sm:text-sm transition-colors">
+            Admin Login →
           </Link>
         </div>
       </header>
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="relative py-16 sm:py-24 md:py-32 overflow-hidden">
+        <section className="relative py-16 sm:py-24 md:py-28 overflow-hidden">
           <div className="absolute inset-0 mesh-gradient" aria-hidden="true" />
           <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-brand/5 rounded-full blur-[150px]" aria-hidden="true" />
           <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] bg-accent/4 rounded-full blur-[120px]" aria-hidden="true" />
 
           <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-6 border-brand/20">
-              <GraduationCap className="w-4 h-4 text-accent" />
               <span className="text-text-muted text-xs sm:text-sm font-medium">Ndayeni Solutions Digital Academy</span>
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-5 tracking-tight">
@@ -112,165 +66,112 @@ export default function TrainingPage() {
               <span className="text-gradient-brand">Digital Future</span>
             </h1>
             <p className="text-text-muted text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
-              Practical, hands-on digital skills training for individuals and teams.
-              From basic computer literacy to web design — designed around your actual needs.
+              Practical, hands-on digital skills training programmes. From basic computer literacy
+              to digital marketing — designed for individuals, teams and small businesses.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a href="#programs" className="w-full sm:w-auto">
-                <Button size="lg" className="w-full bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-xl hover:shadow-brand/30 transition-all duration-500 font-semibold px-8 py-5 sm:py-6 text-sm sm:text-base rounded-full group">
-                  View Programs
-                  <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </a>
-              <a href="#apply" className="w-full sm:w-auto">
-                <Button size="lg" variant="outline" className="w-full border-brand/30 text-brand hover:bg-brand/10 hover:border-brand/60 transition-all duration-500 px-8 py-5 sm:py-6 text-sm sm:text-base rounded-full">
-                  Apply Now
-                </Button>
-              </a>
-            </div>
+            <a href="/training/apply" className="inline-block">
+              <Button size="lg" className="bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-xl hover:shadow-brand/30 transition-all duration-500 font-semibold px-8 py-5 sm:py-6 text-sm sm:text-base rounded-full group">
+                Apply Now
+                <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </a>
           </div>
         </section>
 
-        {/* Programs */}
-        <section id="programs" className="relative py-12 sm:py-20">
+        {/* Training Programmes */}
+        <section className="relative py-12 sm:py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10 sm:mb-14">
-              <span className="text-brand text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3 block">Our Programs</span>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold">
-                <span className="text-warm-white">Choose Your </span>
-                <span className="text-gradient-brand">Path</span>
+              <span className="text-brand text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3 block">Training Programmes</span>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">
+                <span className="text-warm-white">Our </span>
+                <span className="text-gradient-brand">Digital Skills Courses</span>
               </h2>
+              <p className="text-text-muted text-sm sm:text-base max-w-2xl mx-auto">
+                Four structured training programmes covering 12 essential digital skills modules.
+                These are skills courses, not accredited NQF qualifications.
+              </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
-              {programs.map((p) => (
-                <div key={p.title} className="glass rounded-2xl p-5 sm:p-6 border-brand/10 hover:border-brand/30 transition-all duration-500 hover:-translate-y-1 group">
-                  <div className="w-12 h-12 rounded-2xl bg-brand/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500">
-                    <p.icon className="w-6 h-6 text-brand" />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 lg:gap-6">
+              {programmes.map((p) => (
+                <div key={p.code} className="glass rounded-2xl p-5 sm:p-6 lg:p-8 border-brand/10 hover:border-brand/30 transition-all duration-500 hover:-translate-y-1 group">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <span className="text-brand text-xs font-mono font-bold tracking-wider">{p.code}</span>
+                      <h3 className="text-warm-white font-bold text-lg sm:text-xl mt-1">{p.title}</h3>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="glass rounded-full px-2.5 py-1 text-accent text-[10px] font-bold flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {p.duration}
+                      </span>
+                      <span className="text-text-muted text-[10px]">{p.modules}</span>
+                    </div>
                   </div>
-                  <h3 className="text-warm-white font-bold text-base sm:text-lg mb-2">{p.title}</h3>
                   <p className="text-text-muted text-sm leading-relaxed mb-4">{p.desc}</p>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="text-accent font-medium">⏱ {p.duration}</span>
-                    <span className="text-text-muted">•</span>
-                    <span className="text-text-muted">{p.level}</span>
-                  </div>
+                  <a href="/training/apply" className="inline-flex items-center gap-1.5 text-brand text-sm font-medium hover:gap-2.5 transition-all">
+                    Apply for this course <ArrowRight className="w-3.5 h-3.5" />
+                  </a>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Application Form */}
-        <section id="apply" className="relative py-12 sm:py-20 md:py-28">
+        {/* Modules breakdown */}
+        <section className="relative py-12 sm:py-20">
           <div className="absolute inset-0 mesh-gradient" aria-hidden="true" />
-          <div className="absolute top-20 right-[10%] w-[200px] sm:w-[300px] h-[200px] sm:h-[300px] bg-brand/4 rounded-full blur-[100px]" aria-hidden="true" />
-
-          <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-8 sm:mb-10">
-              <span className="text-accent text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3 block">Apply Now</span>
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10 sm:mb-14">
+              <span className="text-accent text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3 block">Course Content</span>
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">
-                <span className="text-warm-white">Start Your </span>
-                <span className="text-gradient-brand">Application</span>
+                <span className="text-warm-white">12 Modules </span>
+                <span className="text-gradient-brand">Covered</span>
               </h2>
-              <p className="text-text-muted text-sm sm:text-base">
-                Fill in the form below and we&apos;ll get back to you within 2 business days.
+              <p className="text-text-muted text-sm sm:text-base max-w-2xl mx-auto">
+                Each programme draws from these 12 modules. Here&apos;s what you&apos;ll learn in each.
               </p>
             </div>
 
-            {submitted ? (
-              <div className="glass rounded-2xl p-6 sm:p-8 lg:p-10 border-brand/20 glow-brand text-center">
-                <div className="w-16 h-16 rounded-full bg-brand/15 flex items-center justify-center mx-auto mb-5">
-                  <Check className="w-8 h-8 text-brand" />
-                </div>
-                <h3 className="text-warm-white font-bold text-xl sm:text-2xl mb-3">Application Received!</h3>
-                <p className="text-text-muted text-sm sm:text-base mb-6">
-                  Thank you for applying to the Ndayeni Solutions Digital Academy.
-                  We&apos;ve received your application and will contact you within 2 business days
-                  to discuss next steps.
-                </p>
-                <Button onClick={() => setSubmitted(false)} variant="outline" className="border-brand/30 text-brand hover:bg-brand/10 px-6 py-4 rounded-full">
-                  Submit Another Application
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="glass rounded-2xl p-4 sm:p-6 lg:p-8 border-brand/10 relative overflow-hidden">
-                <div aria-hidden="true" className="absolute inset-0 rounded-2xl border-glow-animate pointer-events-none" />
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Full Name *</Label>
-                    <Input value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} placeholder="John Doe" required className="bg-dark-deep/60 border-dark-border/50 text-warm-white placeholder:text-text-muted/40 focus:border-brand/50 h-11 text-sm" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              {modules.map((m) => (
+                <div key={m.title} className="glass rounded-xl p-5 border-brand/10 hover:border-brand/25 transition-all duration-500">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-lg bg-brand/10 flex items-center justify-center flex-shrink-0">
+                      <m.icon className="w-4.5 h-4.5 text-brand" />
+                    </div>
+                    <h3 className="text-warm-white font-bold text-sm">{m.title}</h3>
                   </div>
-                  <div>
-                    <Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Email Address *</Label>
-                    <Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="john@example.com" required className="bg-dark-deep/60 border-dark-border/50 text-warm-white placeholder:text-text-muted/40 focus:border-brand/50 h-11 text-sm" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Phone Number *</Label>
-                    <Input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+27 83 800 6989" required className="bg-dark-deep/60 border-dark-border/50 text-warm-white placeholder:text-text-muted/40 focus:border-brand/50 h-11 text-sm" />
-                  </div>
-                  <div>
-                    <Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">ID Number</Label>
-                    <Input value={form.idNumber} onChange={e => setForm({ ...form, idNumber: e.target.value })} placeholder="Optional" className="bg-dark-deep/60 border-dark-border/50 text-warm-white placeholder:text-text-muted/40 focus:border-brand/50 h-11 text-sm" />
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Address</Label>
-                  <Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Suburb, City, Province" className="bg-dark-deep/60 border-dark-border/50 text-warm-white placeholder:text-text-muted/40 focus:border-brand/50 h-11 text-sm" />
-                </div>
-
-                <div className="mb-4">
-                  <Label className="text-text-muted text-[10px] uppercase tracking-wider mb-2 block">Program of Interest *</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {programs.map(p => (
-                      <button
-                        key={p.title}
-                        type="button"
-                        onClick={() => setForm({ ...form, program: p.title })}
-                        className={`flex items-center gap-2 rounded-lg px-3 py-2.5 border text-sm transition-all ${
-                          form.program === p.title
-                            ? "bg-brand/15 border-brand/40 text-warm-white"
-                            : "bg-dark-deep/60 border-dark-border/50 text-text-muted hover:border-brand/30 hover:text-warm-white"
-                        }`}
-                      >
-                        {form.program === p.title && <Check className="w-3.5 h-3.5 text-brand" />}
-                        {p.title}
-                      </button>
+                  <ul className="space-y-1.5">
+                    {m.topics.map((t) => (
+                      <li key={t} className="flex items-start gap-2 text-text-muted text-xs leading-relaxed">
+                        <Check className="w-3 h-3 text-accent/60 flex-shrink-0 mt-0.5" />
+                        {t}
+                      </li>
                     ))}
-                  </div>
-                  {!form.program && <p className="text-text-muted/60 text-xs mt-1.5">Please select a program</p>}
+                  </ul>
                 </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-                <div className="mb-5">
-                  <Label className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 block">Message (Optional)</Label>
-                  <Textarea value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="Tell us about yourself, your goals, or any questions..." rows={3} className="bg-dark-deep/60 border-dark-border/50 text-warm-white placeholder:text-text-muted/40 focus:border-brand/50 resize-none text-sm" />
-                </div>
-
-                {error && (
-                  <div className="mb-4 px-3 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
-                    ⚠ {error}
-                  </div>
-                )}
-
-                <Button type="submit" disabled={submitting || !form.program} className="w-full bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-2xl hover:shadow-brand/30 transition-all duration-500 font-semibold py-5 sm:py-6 text-sm sm:text-base rounded-xl group min-h-[48px]">
-                  {submitting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-dark-deep/30 border-t-dark-deep rounded-full animate-spin mr-2" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2 group-hover:translate-x-0.5 transition-transform" />
-                      Submit Application
-                    </>
-                  )}
-                </Button>
-              </form>
-            )}
+        {/* CTA */}
+        <section className="relative py-16 sm:py-20">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+              <span className="text-warm-white">Ready to </span>
+              <span className="text-gradient-brand">Apply?</span>
+            </h2>
+            <p className="text-text-muted text-sm sm:text-base mb-6">
+              Fill in the application form and we&apos;ll get back to you within 2 business days.
+            </p>
+            <a href="/training/apply" className="inline-block">
+              <Button size="lg" className="bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-xl hover:shadow-brand/30 transition-all duration-500 font-semibold px-8 py-5 sm:py-6 text-sm sm:text-base rounded-full group">
+                Start Your Application
+                <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </a>
           </div>
         </section>
       </main>
@@ -278,12 +179,8 @@ export default function TrainingPage() {
       {/* Footer */}
       <footer className="relative bg-dark-deep border-t border-dark-border/30 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-text-muted text-sm">
-            © {new Date().getFullYear()} Ndayeni Solutions Pty Ltd — Digital Academy Division
-          </p>
-          <p className="text-text-muted/50 text-xs mt-1">
-            Based in Midrand · Servicing nationwide · <Link href="/" className="text-brand hover:underline">Back to website</Link>
-          </p>
+          <p className="text-text-muted text-sm">© {new Date().getFullYear()} Ndayeni Solutions Pty Ltd — Digital Academy Division</p>
+          <p className="text-text-muted/50 text-xs mt-1">Based in Midrand · Servicing nationwide · <Link href="/" className="text-brand hover:underline">Back to website</Link></p>
         </div>
       </footer>
     </div>
