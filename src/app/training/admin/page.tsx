@@ -64,6 +64,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [loginSubmitting, setLoginSubmitting] = useState(false);
   const [activeView, setActiveView] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -85,11 +86,15 @@ export default function AdminPage() {
     try {
       const res = await fetch("/api/academy/students");
       if (res.ok) {
-        const data = await res.json();
-        if (data.ok) {
-          setUser({ id: "session", email: "admin", name: "Admin", role: "admin" });
-          loadDashboard();
-        }
+        const text = await res.text();
+        if (!text) { setLoading(false); return; }
+        try {
+          const data = JSON.parse(text);
+          if (data.ok) {
+            setUser({ id: "session", email: "admin", name: "Admin", role: "admin" });
+            loadDashboard();
+          }
+        } catch {}
       }
     } catch {}
     setLoading(false);
@@ -100,19 +105,31 @@ export default function AdminPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
+    setLoginSubmitting(true);
     try {
       const res = await fetch("/api/academy/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginForm),
       });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error);
+      const text = await res.text();
+      if (!text) {
+        throw new Error("Server returned an empty response. The database may not be configured on this deployment. Please contact support.");
+      }
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Server error. Please try again.");
+      }
+      if (!res.ok || !data.ok) throw new Error(data.error || "Invalid credentials.");
       setUser(data.user);
       setLoginForm({ email: "", password: "" });
       loadDashboard();
     } catch (err) {
       setLoginError(err instanceof Error ? err.message : "Login failed.");
+    } finally {
+      setLoginSubmitting(false);
     }
   };
 
@@ -224,7 +241,7 @@ export default function AdminPage() {
               <div><Label className="text-text-muted text-xs mb-1.5 block">Email</Label><Input type="email" value={loginForm.email} onChange={e => setLoginForm({ ...loginForm, email: e.target.value })} placeholder="you@ndayenisolutions.co.za" required className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11" /></div>
               <div><Label className="text-text-muted text-xs mb-1.5 block">Password</Label><Input type="password" value={loginForm.password} onChange={e => setLoginForm({ ...loginForm, password: e.target.value })} placeholder="••••••••" required className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11" /></div>
               {loginError && <p className="text-red-400 text-sm">{loginError}</p>}
-              <Button type="submit" className="w-full bg-gradient-to-r from-brand to-brand-light text-dark-deep font-semibold py-5 rounded-xl">Sign In</Button>
+              <Button type="submit" disabled={loginSubmitting} className="w-full bg-gradient-to-r from-brand to-brand-light text-dark-deep font-semibold py-5 rounded-xl">{loginSubmitting ? "Signing in…" : "Sign In"}</Button>
             </form>
           </CardContent>
         </Card>
