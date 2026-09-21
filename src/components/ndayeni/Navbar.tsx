@@ -196,11 +196,6 @@ export default function Navbar() {
             </div>
           </div>
 
-          <a href="#contact" onClick={(e) => handleNavClick(e, "#contact")}>
-            <Button className="bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-lg hover:shadow-brand/25 transition-all duration-300 font-semibold px-6 rounded-full">
-              Request a Quote
-            </Button>
-          </a>
         </nav>
 
         {/* Mobile Toggle */}
@@ -268,20 +263,6 @@ export default function Navbar() {
                   <span className="text-text-muted text-xs">{link.desc}</span>
                 </a>
               ))}
-            </div>
-            <div className="mt-5 cta-wrapper">
-              <a
-                href="#contact"
-                onClick={(e) => handleNavClick(e, "#contact")}
-                style={{
-                  WebkitTapHighlightColor: "transparent",
-                  touchAction: "manipulation",
-                }}
-              >
-                <Button className="w-full bg-gradient-to-r from-brand to-brand-light text-dark-deep font-semibold rounded-full py-6 text-base">
-                  Request a Quote
-                </Button>
-              </a>
             </div>
           </div>
         </nav>
