@@ -16,7 +16,11 @@ const navLinks = [
   { label: "Solutions", href: "#solutions" },
   { label: "About", href: "#about" },
   { label: "Contact", href: "#contact" },
-  { label: "Training", href: "/training" },
+];
+
+const trainingLinks = [
+  { label: "Apply", href: "/training", desc: "View courses & apply" },
+  { label: "Admin", href: "/training/admin", desc: "Sign in to manage students" },
 ];
 
 export default function Navbar() {
@@ -165,6 +169,33 @@ export default function Navbar() {
               <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover:w-full transition-all duration-300" />
             </a>
           ))}
+
+          {/* Training Dropdown */}
+          <div className="relative group/training">
+            <button className="flex items-center gap-1 text-warm-white/70 hover:text-brand transition-colors duration-300 text-sm font-medium tracking-wide">
+              Training
+              <svg className="w-3.5 h-3.5 group-hover/training:rotate-180 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover/training:w-full transition-all duration-300" />
+            </button>
+            {/* Dropdown panel */}
+            <div className="absolute top-full right-0 mt-2 w-56 opacity-0 invisible group-hover/training:opacity-100 group-hover/training:visible transition-all duration-300 z-50">
+              <div className="glass-strong rounded-xl border border-brand/15 shadow-2xl shadow-black/40 overflow-hidden">
+                {trainingLinks.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    className="flex flex-col gap-0.5 px-4 py-3 hover:bg-brand/10 transition-colors duration-200 border-b border-dark-border/20 last:border-0"
+                  >
+                    <span className="text-warm-white font-medium text-sm">{link.label}</span>
+                    <span className="text-text-muted text-xs">{link.desc}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <a href="#contact" onClick={(e) => handleNavClick(e, "#contact")}>
             <Button className="bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-lg hover:shadow-brand/25 transition-all duration-300 font-semibold px-6 rounded-full">
               Request a Quote
@@ -220,6 +251,24 @@ export default function Navbar() {
                 {link.label}
               </a>
             ))}
+            {/* Mobile Training links */}
+            <div className="border-b border-dark-border/20 py-2 px-3">
+              <div className="text-text-muted text-xs uppercase tracking-wider font-semibold mb-2 pt-2">Training</div>
+              {trainingLinks.map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="flex flex-col py-3 px-3 text-warm-white/80 hover:text-brand active:text-brand active:bg-brand/10 transition-colors duration-200 rounded-lg min-h-[48px] justify-center"
+                  style={{
+                    WebkitTapHighlightColor: "transparent",
+                    touchAction: "manipulation",
+                  }}
+                >
+                  <span className="text-base font-medium">{link.label}</span>
+                  <span className="text-text-muted text-xs">{link.desc}</span>
+                </a>
+              ))}
+            </div>
             <div className="mt-5 cta-wrapper">
               <a
                 href="#contact"
