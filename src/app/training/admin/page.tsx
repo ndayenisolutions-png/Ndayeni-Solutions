@@ -138,22 +138,18 @@ export default function AdminPage() {
     setUser(null);
   };
 
-  const api = async (url: string | undefined, opts?: RequestInit) => {
+  const api = async (url: string, opts?: RequestInit) => {
     const res = await fetch(url, opts);
-    return res.json();
+    const text = await res.text();
+    if (!text) return { ok: false };
+    try { return JSON.parse(text); } catch { return { ok: false }; }
   };
 
   const loadDashboard = async () => {
-    try {
-      const [repRes, stuRes, couRes] = await Promise.all([
-        api("/api/academy/reports"),
-        api("/api/academy/students"),
-        api("/api/academy/courses"),
-      ]);
-      if (repRes.ok) setStats(repRes.stats || repRes);
-      if (stuRes.ok) setStudents(stuRes.students || []);
-      if (couRes.ok) setCourses(couRes.courses || []);
-    } catch {}
+    // Independent calls — one failure won't block the others
+    api("/api/academy/reports").then(d => { if (d.ok) setStats(d.stats || d); }).catch(() => {});
+    api("/api/academy/students").then(d => { if (d.ok) setStudents(d.students || []); }).catch(() => {});
+    api("/api/academy/courses").then(d => { if (d.ok) setCourses(d.courses || []); }).catch(() => {});
   };
 
   const loadUsers = async () => {
