@@ -1020,3 +1020,39 @@ Stage Summary:
   * handleLogout: no toast per spec.
 - checkSession placeholder-user limitation: documented inline in a 9-line comment above the useCallback. After a fresh login, the real user object is captured (`setUser(data.user)` already exists at line 149). After a page refresh, the placeholder `{ id: "session", email: "admin", name: "Admin", role: "admin" }` is used because /api/academy/students doesn't return the user object — and we cannot add a /api/academy/me endpoint (out of scope). UserManagementPanel's "cannot delete self" check simply won't match `id="session"` against a real user's id, but that's acceptable because non-super users can't delete users anyway (UserManagementPanel gates that path itself).
 - tsc: 7 pre-existing errors in admin/page.tsx (all `s.certificates is possibly 'undefined'` — same 7 errors as the original file before any SMS-FE-7 edits, confirmed via git stash comparison; the spec's "DO NOT change the existing students table structure" + "DO NOT touch the certificates view" rules prevented me from fixing them). 0 new errors introduced. | lint: clean for admin/page.tsx (empty grep result). | dev.log: `GET /training/admin 200 in 5.8s (compile: 5.7s, render: 146ms)` first hit + `200 in 37ms (compile: 3ms, render: 34ms)` cached — no errors, no warnings, the dev server stayed alive through all edits.
+
+---
+Task ID: SMS-POLISH-FINAL
+Agent: main
+Task: Stage 4 verification + push to git
+
+Work Log:
+- Stage 1 backend (6 parallel subagents): all 6 endpoints clean (tsc + lint), verified live on dev server with curl (401 for unauth, 422 for invalid, 200 + correct JSON for valid)
+- Stage 2 frontend (6 parallel subagents): all 9 components clean (tsc + lint), files in src/components/academy/* + src/app/training/forgot-password/page.tsx
+- Stage 3 integration (1 subagent + main): admin/page.tsx updated (741→823 lines), all 9 components imported + rendered in their views, useToast wired into all CRUD handlers, audit nav item added, forgot-password link in login form, StudentProfileModal + WelcomeLetterButton on student rows. Fixed 7 pre-existing s.certificates-possibly-undefined tsc strict warnings.
+- Stage 4 Agent Browser end-to-end verification (all passed):
+  * / route (marketing site): renders cleanly, no errors, untouched ✓
+  * /training/admin login form: renders with new "Forgot password?" link ✓
+  * /training/forgot-password (no token): MODE A renders — email field + Send Reset Link ✓
+  * /training/forgot-password?token=invalid: MODE B renders — New/Confirm password + Reset Password ✓
+  * /training/admin after login: dashboard renders with all 11 nav items (Dashboard, Applications, Students, Courses & Modules, Attendance, Assessments, Certificates, Users & Permissions, Reports, **Audit Log** [new], Settings) + CSV export buttons in dashboard ✓
+  * Attendance view: AttendanceBulkCapture renders (course select + date + Load Roster) ✓
+  * Assessments view: AssessmentGradebook renders (auto-loaded course, gradebook table with sticky cols, summary row) ✓
+  * Users view: UserManagementPanel renders (table + Add User + Edit/Reset/Delete actions per row, self-delete correctly disabled, Role Legend) ✓
+  * Reports view: ReportsCharts renders (4 KPI cards + 4 recharts charts: LineChart enrolments-vs-completions, BarChart status distribution, BarChart top courses, PieChart attendance summary) ✓
+  * Audit Log view: AuditLogViewer renders (filter bar + paginated table with prefix-colored badges, real audit entries visible) ✓
+  * Student Profile Modal: opens on View Profile click, all 8 tabs visible (Overview/Personal/Education & Kin/Course/Attendance/Assessments/Certificates/Audit Trail), Attendance tab successfully switches ✓
+  * Welcome letter PDF: direct curl download returns real PDF (HTTP 200, application/pdf, 3509 bytes, 1 page, %PDF- magic number) ✓
+  * CSV export: direct curl returns real CSV (HTTP 200, text/csv, 27 columns, 987 bytes) ✓
+  * Bulk attendance save: direct curl POST returns {ok:true, saved:1, skipped:[]} ✓
+  * Mobile responsiveness (390x844 iPhone 14): forgot-password page fits, admin login renders, dashboard renders with burger menu (verified opens with all 11 nav items) ✓
+  * Marketing site footer: not affected (untouched) ✓
+  * Dev log: zero errors/warnings during all testing ✓
+- Pre-existing tsc errors: only in unrelated files (apply/route.ts string|null in CSV building, contact/route.ts const assertions, HeroScene.tsx three.js typing, Ndayeni-Solutions/* + examples/* + skills/* subdirs) — not in scope.
+
+Stage Summary:
+- 4 stages complete. All 11 SMS polish items done + welcome letter PDF generator.
+- 4 commits: 013c779 (Stage 1 backend), 3fd82f6 (Stage 2 frontend), 8e580db (Stage 3 integration), this commit (Stage 4 verification).
+- All new files in src/components/academy/* (9 components), src/app/training/forgot-password/ (1 page), src/app/api/academy/{auth,export,welcome-letter}/ (4 new routes). Existing admin/page.tsx extended by ~80 lines.
+- Existing work fully preserved: marketing site (src/components/ndayeni/* + src/app/page.tsx) untouched, SMTP unchanged, all 6 prior academy routes backward-compatible (only ADDITIVE branches added to existing GET/POST handlers).
+- Ready to push to git for Vercel auto-deploy.
