@@ -19,8 +19,6 @@ import {
 import { Button } from "@/components/ui/button";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { sectionImages } from "@/lib/section-images";
-import HeroScene from "./HeroScene";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -59,16 +57,15 @@ export default function Hero() {
   const trustRef = useRef<HTMLDivElement>(null);
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
 
-  // NOTE: Previously this component gated the heavy three.js HeroScene on
-  // touch devices via a matchMedia + userAgent check, and used
-  // framer-motion's useScroll + useTransform for a scroll-linked parallax.
-  // Both have been removed:
-  //   - The new CSS-only HeroScene is ~3KB and runs smoothly on every
-  //     device, so it's always rendered.
-  //   - Scroll-linked transforms caused constant repaints on iOS Safari
-  //     (which is already overworked by the page's GSAP ScrollTrigger
-  //     instances + glass surfaces). Removing them makes iOS scroll
-  //     materially smoother.
+  // Hero uses a clean solid `bg-dark-deep` background. The previous three.js
+  // animated HeroScene + background image were removed because (a) the 3D
+  // objects were heavy on iOS Safari and (b) the busy visual cluttered the
+  // headline. The result is a calmer, more focused hero that lets the
+  // gradient text + glass content panel do the talking.
+  //
+  // Subtle CSS-only overlays remain: a radial vignette around the edges for
+  // depth and a soft glow behind the headline for legibility. No images,
+  // no animations, no moving objects — just typography and colour.
 
   useEffect(() => {
     const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
@@ -111,42 +108,25 @@ export default function Hero() {
     <section
       id="home"
       ref={containerRef}
-      className="relative min-h-screen flex items-center overflow-hidden"
+      className="relative min-h-screen flex items-center overflow-hidden bg-dark-deep"
     >
-      {/* Lightweight CSS animated background — always rendered (was heavy three.js, now ~3KB). */}
-      <HeroScene />
-
-      {/* Background image (always visible; was gated to opacity 0.25 on desktop
-           when the 3D scene overlaid it, now fixed at 0.4 since the new
-           HeroScene is just a soft glow + orbs overlay). */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 z-0 pointer-events-none"
-        style={{
-          backgroundImage: `url(${sectionImages.abstract})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          opacity: 0.4,
-        }}
-      />
-
-      {/* Subtle radial vignette to deepen the edges */}
+      {/* Subtle radial vignette to deepen the edges (CSS, not an image) */}
       <div
         aria-hidden="true"
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse at 30% 50%, transparent 25%, rgba(7,21,21,0.6) 100%)",
+            "radial-gradient(ellipse at 30% 50%, transparent 25%, rgba(0,0,0,0.55) 100%)",
         }}
       />
 
-      {/* Soft left-side glow behind the headline for legibility */}
+      {/* Soft left-side glow behind the headline for legibility (CSS, not an image) */}
       <div
         aria-hidden="true"
         className="absolute inset-0 z-[2] pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 50% 60% at 35% 50%, rgba(7,21,21,0.75) 0%, transparent 70%)",
+            "radial-gradient(ellipse 55% 65% at 35% 50%, rgba(7,21,21,0.65) 0%, transparent 70%)",
         }}
       />
 
