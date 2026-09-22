@@ -50,6 +50,9 @@ export default function VerifyPage() {
 
   const isRevoked = cert?.status === "revoked";
   const issueDate = cert?.issueDate ? new Date(cert.issueDate as string).toLocaleDateString("en-ZA", { year: "numeric", month: "long", day: "numeric" }) : "—";
+  const verificationMessage = isRevoked
+    ? "This certificate has been revoked and is no longer valid."
+    : "This certificate has been verified as authentic and valid.";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-dark-deep px-4">
@@ -70,15 +73,13 @@ export default function VerifyPage() {
         </h1>
 
         <p className="text-text-muted text-sm mb-6">
-          {isRevoked
-            ? "This certificate has been revoked and is no longer valid."
-            : "This certificate has been verified as authentic and valid."}
+          {verificationMessage}
         </p>
 
         <div className="glass rounded-xl p-4 border-brand/10 text-left space-y-2 mb-6">
           <div className="flex justify-between gap-2"><span className="text-text-muted text-xs">Certificate No:</span><span className="text-warm-white font-mono text-xs font-bold">{String(cert?.certificateNumber || "—")}</span></div>
           <div className="flex justify-between gap-2"><span className="text-text-muted text-xs">Student:</span><span className="text-warm-white text-xs font-medium">{String(cert?.studentName || "—")}</span></div>
-          {cert?.idNumber && <div className="flex justify-between gap-2"><span className="text-text-muted text-xs">ID Number:</span><span className="text-warm-white text-xs">{String(cert.idNumber)}</span></div>}
+          {cert?.idNumber ? <div className="flex justify-between gap-2"><span className="text-text-muted text-xs">ID Number:</span><span className="text-warm-white text-xs">{String(cert.idNumber)}</span></div> : null}
           <div className="flex justify-between gap-2"><span className="text-text-muted text-xs">Programme:</span><span className="text-warm-white text-xs font-medium">{String(cert?.programName || "—")}</span></div>
           <div className="flex justify-between gap-2"><span className="text-text-muted text-xs">Issue Date:</span><span className="text-warm-white text-xs">{issueDate}</span></div>
           <div className="flex justify-between gap-2"><span className="text-text-muted text-xs">Status:</span><span className={`text-xs font-bold uppercase ${isRevoked ? "text-red-400" : "text-green-400"}`}>{isRevoked ? "Revoked" : "Valid"}</span></div>

@@ -18,6 +18,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import gsap from "gsap";
+
+// Augment the Window type with the reCAPTCHA globals injected by Google's script tag.
+declare global {
+  interface Window {
+    grecaptcha?: {
+      ready?: (cb: () => void) => void;
+      execute?: (siteKey: string, opts: { action: string }) => Promise<string>;
+    };
+  }
+}
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { sectionImages } from "@/lib/section-images";
 

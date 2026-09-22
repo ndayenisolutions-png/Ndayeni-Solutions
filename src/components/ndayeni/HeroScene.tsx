@@ -68,6 +68,7 @@ function FloatingShape({
         ref={meshRef}
         position={position}
         scale={scale}
+        // @ts-expect-error — R3F's <Torus>/<TorusKnot> args have incompatible tuple shapes; this is intentional.
         args={
           shape === "torus"
             ? [1, 0.32, 24, 64]
@@ -151,6 +152,7 @@ function Particles({ count = 55 }: { count?: number }) {
   return (
     <points ref={points}>
       <bufferGeometry>
+        {/* @ts-expect-error — R3F's <bufferAttribute> type requires `args` but the imperative props below also work. */}
         <bufferAttribute
           attach="attributes-position"
           count={count}

@@ -12,10 +12,21 @@ if (typeof window !== "undefined") {
 
 const navLinks = [
   { label: "Home", href: "#home" },
-  { label: "Services", href: "#services" },
   { label: "Solutions", href: "#solutions" },
   { label: "About", href: "#about" },
   { label: "Contact", href: "#contact" },
+];
+
+const servicesDropdownLinks = [
+  { label: "IT Support & Outsourcing", href: "/services/it-support-outsourcing", desc: "Ongoing IT support for small businesses" },
+  { label: "Computer Repairs", href: "/services/computer-repairs", desc: "Laptop, desktop & peripheral repairs" },
+  { label: "Networking & Wi-Fi", href: "/services/networking-wifi", desc: "Cat6 cabling, mesh Wi-Fi, switches" },
+  { label: "CCTV & Security", href: "/services/cctv-security", desc: "4K cameras, NVRs, mobile monitoring" },
+  { label: "Printer & Office Tech", href: "/services/printer-office-technology", desc: "Printers, scanners, print servers" },
+  { label: "Web Design", href: "/services/web-design", desc: "Fast, SEO-ready business websites" },
+  { label: "Graphic Design & Branding", href: "/services/graphic-design-branding", desc: "Logos, brand systems, stationery" },
+  { label: "Digital Automation", href: "/services/digital-automation", desc: "Workflow automation & integrations" },
+  { label: "Digital Skills Training", href: "/services/digital-skills-training", desc: "Hands-on digital literacy courses" },
 ];
 
 const trainingLinks = [
@@ -170,6 +181,43 @@ export default function Navbar() {
             </a>
           ))}
 
+          {/* Services Dropdown */}
+          <div className="relative group/services">
+            <a
+              href="#services"
+              onClick={(e) => handleNavClick(e, "#services")}
+              className="flex items-center gap-1 text-warm-white/70 hover:text-brand transition-colors duration-300 text-sm font-medium tracking-wide group"
+            >
+              Services
+              <svg className="w-3.5 h-3.5 group-hover/services:rotate-180 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover:w-full transition-all duration-300" />
+            </a>
+            {/* Dropdown panel */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 opacity-0 invisible group-hover/services:opacity-100 group-hover/services:visible transition-all duration-300 z-50">
+              <div className="glass-strong rounded-xl border border-brand/15 shadow-2xl shadow-black/40 overflow-hidden max-h-[80vh] overflow-y-auto">
+                <a
+                  href="/services"
+                  className="flex flex-col gap-0.5 px-4 py-3 hover:bg-brand/10 transition-colors duration-200 border-b border-dark-border/20 sticky top-0 glass-strong"
+                >
+                  <span className="text-brand font-semibold text-sm">All Services →</span>
+                  <span className="text-text-muted text-xs">Browse all 9 service categories</span>
+                </a>
+                {servicesDropdownLinks.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    className="flex flex-col gap-0.5 px-4 py-2.5 hover:bg-brand/10 transition-colors duration-200 border-b border-dark-border/20 last:border-0"
+                  >
+                    <span className="text-warm-white font-medium text-sm">{link.label}</span>
+                    <span className="text-text-muted text-xs">{link.desc}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Training Dropdown */}
           <div className="relative group/training">
             <button className="flex items-center gap-1 text-warm-white/70 hover:text-brand transition-colors duration-300 text-sm font-medium tracking-wide">
@@ -246,6 +294,31 @@ export default function Navbar() {
                 {link.label}
               </a>
             ))}
+            {/* Mobile Services links */}
+            <div className="border-b border-dark-border/20 py-2 px-3">
+              <div className="text-text-muted text-xs uppercase tracking-wider font-semibold mb-2 pt-2">Services</div>
+              <a
+                href="/services"
+                className="flex flex-col py-3 px-3 text-brand hover:bg-brand/10 active:bg-brand/10 transition-colors duration-200 rounded-lg min-h-[48px] justify-center"
+              >
+                <span className="text-base font-semibold">All Services →</span>
+                <span className="text-text-muted text-xs">Browse all 9 categories</span>
+              </a>
+              {servicesDropdownLinks.map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="flex flex-col py-3 px-3 text-warm-white/80 hover:text-brand active:text-brand active:bg-brand/10 transition-colors duration-200 rounded-lg min-h-[48px] justify-center"
+                  style={{
+                    WebkitTapHighlightColor: "transparent",
+                    touchAction: "manipulation",
+                  }}
+                >
+                  <span className="text-base font-medium">{link.label}</span>
+                  <span className="text-text-muted text-xs">{link.desc}</span>
+                </a>
+              ))}
+            </div>
             {/* Mobile Training links */}
             <div className="border-b border-dark-border/20 py-2 px-3">
               <div className="text-text-muted text-xs uppercase tracking-wider font-semibold mb-2 pt-2">Training</div>

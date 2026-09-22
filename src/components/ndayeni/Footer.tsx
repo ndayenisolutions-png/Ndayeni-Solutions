@@ -8,23 +8,35 @@ gsap.registerPlugin(ScrollToPlugin);
 
 const quickLinks = [
   { label: "Home", href: "#home" },
-  { label: "Services", href: "#services" },
+  { label: "All Services", href: "/services" },
   { label: "Solutions", href: "#solutions" },
   { label: "Care Plans", href: "#care-plans" },
   { label: "About Us", href: "#about" },
+  { label: "FAQ", href: "#faq" },
   { label: "Contact", href: "#contact" },
 ];
 
 const serviceLinks = [
-  "IT Support & Outsourcing",
-  "Computer Repairs & Hardware",
-  "Networking & Wi-Fi",
-  "CCTV & Security Technology",
-  "Printer & Office Technology",
-  "Web Design & Digital Presence",
-  "Graphic Design & Branding",
-  "Digital Automation & Business Systems",
-  "Digital Skills Training",
+  { label: "IT Support & Outsourcing", href: "/services/it-support-outsourcing" },
+  { label: "Computer Repairs", href: "/services/computer-repairs" },
+  { label: "Networking & Wi-Fi", href: "/services/networking-wifi" },
+  { label: "CCTV & Security", href: "/services/cctv-security" },
+  { label: "Printer & Office Tech", href: "/services/printer-office-technology" },
+  { label: "Web Design", href: "/services/web-design" },
+  { label: "Graphic Design & Branding", href: "/services/graphic-design-branding" },
+  { label: "Digital Automation", href: "/services/digital-automation" },
+  { label: "Digital Skills Training", href: "/services/digital-skills-training" },
+];
+
+const legalLinks = [
+  { label: "Privacy Policy", href: "/privacy-policy" },
+  { label: "Terms of Service", href: "/terms" },
+];
+
+const serviceAreas = [
+  "Midrand", "Kaalfontein", "Centurion", "Fourways",
+  "Randburg", "Sandton", "Roodepoort", "Kempton Park",
+  "Edenvale", "Pretoria",
 ];
 
 const touchLinkStyles =
@@ -119,20 +131,20 @@ export default function Footer() {
             </h4>
             <ul className="space-y-1">
               {serviceLinks.map((service) => (
-                <li key={service}>
+                <li key={service.label}>
                   <a
-                    href="#services"
+                    href={service.href}
                     className={`text-text-muted hover:text-accent transition-colors text-sm items-center gap-2 group ${touchLinkStyles}`}
                   >
                     <span className="w-1 h-1 rounded-full bg-accent/30 group-hover:bg-accent transition-colors flex-shrink-0" />
-                    {service}
+                    {service.label}
                   </a>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Company Info */}
+          {/* Company Info + Service Area */}
           <div className="sm:col-span-2 lg:col-span-1">
             <h4 className="text-warm-white font-semibold mb-5 text-sm tracking-wider uppercase">
               Company Info
@@ -153,6 +165,19 @@ export default function Footer() {
                 <span className="text-warm-white/70">Reg:</span> South African
                 Registered Company
               </p>
+              <div className="pt-3">
+                <span className="text-warm-white/70 block mb-2">Service Area:</span>
+                <div className="flex flex-wrap gap-1">
+                  {serviceAreas.map((area) => (
+                    <span
+                      key={area}
+                      className="text-[10px] px-2 py-0.5 rounded-full bg-brand/10 text-text-muted border border-brand/10"
+                    >
+                      {area}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -166,7 +191,24 @@ export default function Footer() {
             © {new Date().getFullYear()} Ndayeni Solutions Pty Ltd. All Rights
             Reserved.
           </p>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+            {legalLinks.map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                className="text-text-muted hover:text-brand transition-colors text-xs"
+              >
+                {link.label}
+              </a>
+            ))}
+            <a
+              href="https://www.google.com/search?q=Ndayeni+Solutions+Midrand"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-text-muted hover:text-brand transition-colors text-xs"
+            >
+              Find us on Google
+            </a>
             <span className="text-text-muted/50 text-xs hidden sm:inline">
               Designed &amp; Developed by Ndayeni Solutions
             </span>

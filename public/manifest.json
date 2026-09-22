@@ -1,0 +1,26 @@
+{
+  "name": "Ndayeni Solutions",
+  "short_name": "Ndayeni",
+  "description": "Technology solutions for small businesses and homes across South Africa — IT support, computer repairs, networking, CCTV, web design, training.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#071515",
+  "theme_color": "#071515",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity", "utilities"],
+  "lang": "en-ZA",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

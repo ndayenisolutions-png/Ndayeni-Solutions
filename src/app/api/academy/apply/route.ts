@@ -99,9 +99,10 @@ export async function POST(req: NextRequest) {
   const student = await db.student.create({
     data: {
       applicationRef: ref,
-      fullName,
+      // After validation above (errors returned if any of these are null/empty), they're guaranteed non-null
+      fullName: fullName!,
       email,
-      phone,
+      phone: phone!,
       idNumber,
       dateOfBirth,
       gender,
@@ -154,10 +155,10 @@ export async function POST(req: NextRequest) {
         </div>
         <p style="margin:0 0 8px;color:#0f172a;font-size:14px;">A new application has been submitted.</p>
         <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
-          <tr><td style="padding:4px 0;color:#64748b;width:80px;">Applicant:</td><td style="padding:4px 0;color:#0f172a;font-weight:600;">${escapeHtml(fullName)}</td></tr>
+          <tr><td style="padding:4px 0;color:#64748b;width:80px;">Applicant:</td><td style="padding:4px 0;color:#0f172a;font-weight:600;">${escapeHtml(fullName!)}</td></tr>
           <tr><td style="padding:4px 0;color:#64748b;">Course(s):</td><td style="padding:4px 0;color:#0f172a;">${escapeHtml(coursesStr)}</td></tr>
           <tr><td style="padding:4px 0;color:#64748b;">Email:</td><td style="padding:4px 0;color:#1e90ff;">${escapeHtml(email)}</td></tr>
-          <tr><td style="padding:4px 0;color:#64748b;">Phone:</td><td style="padding:4px 0;color:#0f172a;">${escapeHtml(phone)}</td></tr>
+          <tr><td style="padding:4px 0;color:#64748b;">Phone:</td><td style="padding:4px 0;color:#0f172a;">${escapeHtml(phone!)}</td></tr>
           <tr><td style="padding:4px 0;color:#64748b;">Ref:</td><td style="padding:4px 0;color:#0f172a;font-family:monospace;">${escapeHtml(ref)}</td></tr>
         </table>
         <div style="background:#f1f5f9;border-radius:8px;padding:12px;text-align:center;">

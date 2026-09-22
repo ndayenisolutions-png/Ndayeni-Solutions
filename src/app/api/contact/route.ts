@@ -82,7 +82,7 @@ async function getTransporter() {
 async function getTestTransporter() {
   const disableTestMode = process.env.SMTP_DISABLE_TEST_MODE === "true";
   if (disableTestMode) {
-    return { transporter: null, mode: null as const, testAccount: null };
+    return { transporter: null, mode: null, testAccount: null };
   }
 
   if (cachedTransporter && cachedMode === "test" && cachedTestAccount) {
@@ -96,7 +96,7 @@ async function getTestTransporter() {
     account = await nodemailer.createTestAccount();
   } catch (err) {
     console.error("[contact] Failed to create Ethereal test account:", err);
-    return { transporter: null, mode: null as const, testAccount: null };
+    return { transporter: null, mode: null, testAccount: null };
   }
 
   const transporter = nodemailer.createTransport({
