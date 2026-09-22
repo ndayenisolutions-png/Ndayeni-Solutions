@@ -10,8 +10,18 @@ import {
   LayoutDashboard, FileText, Users, BookOpen, Calendar, Award,
   BarChart3, Settings, LogOut, Check, X, Search, Plus, Trash2,
   ChevronDown, ShieldCheck, Clock, Download, ArrowLeft, Edit, AlertCircle,
+  History, Mail, Eye, KeyRound,
 } from "lucide-react";
 import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
+import StudentProfileModal from "@/components/academy/StudentProfileModal";
+import WelcomeLetterButton from "@/components/academy/WelcomeLetterButton";
+import AttendanceBulkCapture from "@/components/academy/AttendanceBulkCapture";
+import AssessmentGradebook from "@/components/academy/AssessmentGradebook";
+import UserManagementPanel from "@/components/academy/UserManagementPanel";
+import AuditLogViewer from "@/components/academy/AuditLogViewer";
+import CSVExportButtons from "@/components/academy/CSVExportButtons";
+import ReportsCharts from "@/components/academy/ReportsCharts";
 
 type SessionUser = { id: string; email: string; name: string; role: string };
 type Student = Record<string, unknown> & {
@@ -40,6 +50,7 @@ const navItems = [
   { id: "certificates", label: "Certificates", icon: Download },
   { id: "users", label: "Users & Permissions", icon: ShieldCheck },
   { id: "reports", label: "Reports", icon: BarChart3 },
+  { id: "audit", label: "Audit Log", icon: History },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -81,7 +92,19 @@ export default function AdminPage() {
   const [showManualCert, setShowManualCert] = useState(false);
   const [attendanceStudent, setAttendanceStudent] = useState<string>("");
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, unknown>[]>([]);
+  const [profileStudentId, setProfileStudentId] = useState<string | null>(null);
 
+  const { toast } = useToast();
+
+  // checkSession is called on page load (refresh). The /api/academy/students
+  // endpoint doesn't return the user object — we only learn that the session
+  // cookie is valid. So we fall back to a placeholder user. This means
+  // UserManagementPanel's "cannot delete self" check will never match the
+  // real user ID after a page refresh (id="session"). After a fresh login via
+  // handleLogin below, the real user object IS captured (setUser(data.user))
+  // and the placeholder is replaced. This is a known limitation documented
+  // in worklog.md — acceptable because non-super users cannot delete users
+  // anyway (UserManagementPanel gates that path itself).
   const checkSession = useCallback(async () => {
     try {
       const res = await fetch("/api/academy/students");
@@ -127,7 +150,9 @@ export default function AdminPage() {
       setLoginForm({ email: "", password: "" });
       loadDashboard();
     } catch (err) {
-      setLoginError(err instanceof Error ? err.message : "Login failed.");
+      const msg = err instanceof Error ? err.message : "Login failed.";
+      setLoginError(msg);
+      toast({ title: "Login failed", description: msg, variant: "destructive" });
     } finally {
       setLoginSubmitting(false);
     }
@@ -163,45 +188,80 @@ export default function AdminPage() {
   };
 
   const updateStudent = async (id: string | undefined, updates: Record<string, unknown>) => {
-    await api("/api/academy/students", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "update", id, ...updates }),
-    });
-    loadStudents();
-    setEditing(null);
+    try {
+      const data = await api("/api/academy/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", id, ...updates }),
+      });
+      if (data.ok) {
+        toast({ title: "Student updated", description: "Changes saved successfully." });
+      } else {
+        toast({ title: "Error", description: String(data.error || "Failed to update student."), variant: "destructive" });
+      }
+      loadStudents();
+      setEditing(null);
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to update student.", variant: "destructive" });
+    }
   };
 
   const convertStudent = async (id: string | undefined) => {
-    await api("/api/academy/students", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "convert", id }),
-    });
-    loadStudents();
-    loadDashboard();
+    try {
+      const data = await api("/api/academy/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "convert", id }),
+      });
+      if (data.ok) {
+        const s = students.find(x => x.id === id);
+        toast({ title: "Student enrolled", description: `${s?.fullName || "Student"} is now enrolled. Welcome letter available.` });
+      } else {
+        toast({ title: "Error", description: String(data.error || "Failed to enrol student."), variant: "destructive" });
+      }
+      loadStudents();
+      loadDashboard();
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to enrol student.", variant: "destructive" });
+    }
   };
 
   const deleteStudent = async (id: string | undefined) => {
     if (!confirm("Delete this student? This cannot be undone.")) return;
-    await api("/api/academy/students", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "delete", id }),
-    });
-    loadStudents();
-    loadDashboard();
+    try {
+      const data = await api("/api/academy/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id }),
+      });
+      if (data.ok) {
+        toast({ title: "Student deleted", description: "The student record has been removed." });
+      } else {
+        toast({ title: "Error", description: String(data.error || "Failed to delete student."), variant: "destructive" });
+      }
+      loadStudents();
+      loadDashboard();
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to delete student.", variant: "destructive" });
+    }
   };
 
   const issueCertificate = async (studentId: string | undefined) => {
-    const data = await api("/api/academy/certificate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId }),
-    });
-    if (data.ok) {
-      loadStudents();
-      if (data.certificate?.id) window.open(`/training/certificate/${data.certificate.id}`, "_blank");
+    try {
+      const data = await api("/api/academy/certificate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId }),
+      });
+      if (data.ok) {
+        toast({ title: "Certificate issued", description: "The certificate has been generated and is ready to view." });
+        loadStudents();
+        if (data.certificate?.id) window.open(`/training/certificate/${data.certificate.id}`, "_blank");
+      } else {
+        toast({ title: "Error", description: String(data.error || "Failed to issue certificate."), variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to issue certificate.", variant: "destructive" });
     }
   };
 
@@ -238,6 +298,9 @@ export default function AdminPage() {
               <div><Label className="text-text-muted text-xs mb-1.5 block">Password</Label><Input type="password" value={loginForm.password} onChange={e => setLoginForm({ ...loginForm, password: e.target.value })} placeholder="••••••••" required className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11" /></div>
               {loginError && <p className="text-red-400 text-sm">{loginError}</p>}
               <Button type="submit" disabled={loginSubmitting} className="w-full bg-gradient-to-r from-brand to-brand-light text-dark-deep font-semibold py-5 rounded-xl">{loginSubmitting ? "Signing in…" : "Sign In"}</Button>
+              <div className="text-right">
+                <Link href="/training/forgot-password" className="text-sm text-brand hover:text-brand-light transition-colors">Forgot password?</Link>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -252,7 +315,7 @@ export default function AdminPage() {
     { label: "Accepted", value: stats.acceptedApplications ?? students.filter(s => s.status === "accepted").length, color: "text-cyan-400", icon: Check },
     { label: "Enrolled / Active", value: stats.enrolledStudents ?? students.filter(s => ["enrolled", "active"].includes(s.status)).length, color: "text-green-400", icon: Users },
     { label: "Completed", value: stats.completedStudents ?? students.filter(s => s.status === "completed").length, color: "text-emerald-400", icon: Award },
-    { label: "Certificates Issued", value: stats.certificatesIssued ?? students.filter(s => s.certificates?.length > 0).length, color: "text-brand-light", icon: Download },
+    { label: "Certificates Issued", value: stats.certificatesIssued ?? students.filter(s => (s.certificates?.length ?? 0) > 0).length, color: "text-brand-light", icon: Download },
   ];
 
   const quickActions = [
@@ -306,6 +369,9 @@ export default function AdminPage() {
           {activeView === "dashboard" && (
             <div>
               <h1 className="text-warm-white font-bold text-xl sm:text-2xl mb-6">Dashboard</h1>
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <CSVExportButtons />
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-8">
                 {dashStats.map(s => (
                   <div key={s.label} className="glass rounded-xl p-4 border-brand/10">
@@ -458,10 +524,12 @@ export default function AdminPage() {
                         <td className="p-3"><span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full border ${statusColors[s.status] || ""}`}>{s.status}</span></td>
                         <td className="p-3 hidden md:table-cell"><div className="flex items-center gap-2"><div className="w-16 h-1.5 bg-dark-border/50 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-brand to-brand-light rounded-full" style={{ width: `${s.progress}%` }} /></div><span className="text-text-muted text-xs">{s.progress}%</span></div></td>
                         <td className="p-3"><div className="flex items-center justify-end gap-1">
+                          <button onClick={() => setProfileStudentId(s.id)} className="p-1.5 rounded hover:bg-brand/15 text-text-muted hover:text-brand" title="View Profile"><Eye className="w-3.5 h-3.5" /></button>
                           <button onClick={() => setEditing(s)} className="p-1.5 rounded hover:bg-brand/15 text-text-muted hover:text-brand" title="Edit"><Edit className="w-3.5 h-3.5" /></button>
                           {s.status !== "completed" && <button onClick={() => issueCertificate(s.id)} className="p-1.5 rounded hover:bg-green-500/15 text-text-muted hover:text-green-400" title="Issue Certificate"><Award className="w-3.5 h-3.5" /></button>}
-                          {s.certificates?.length > 0 && <button onClick={() => window.open(`/training/certificate/${s.certificates[0].id}`, "_blank")} className="p-1.5 rounded hover:bg-brand/15 text-text-muted hover:text-brand" title="View Certificate"><Download className="w-3.5 h-3.5" /></button>}
+                          {(s.certificates?.length ?? 0) > 0 && <button onClick={() => window.open(`/training/certificate/${s.certificates![0].id}`, "_blank")} className="p-1.5 rounded hover:bg-brand/15 text-text-muted hover:text-brand" title="View Certificate"><Download className="w-3.5 h-3.5" /></button>}
                           <button onClick={() => deleteStudent(s.id)} className="p-1.5 rounded hover:bg-red-500/15 text-text-muted hover:text-red-400" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                          {["enrolled", "active", "completed"].includes(s.status) && <WelcomeLetterButton studentId={s.id} studentNumber={s.studentNumber} status={s.status} variant="ghost" size="sm" />}
                         </div></td>
                       </tr>
                     ))}
@@ -497,35 +565,23 @@ export default function AdminPage() {
 
           {/* ATTENDANCE VIEW */}
           {activeView === "attendance" && (
-            <div>
-              <h1 className="text-warm-white font-bold text-xl sm:text-2xl mb-6">Attendance</h1>
-              <div className="glass rounded-xl p-5 border-brand/10 mb-4">
-                <h3 className="text-warm-white font-semibold text-sm mb-3">Record Attendance</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <select value={attendanceStudent} onChange={e => setAttendanceStudent(e.target.value)} className="bg-dark-deep/60 border border-dark-border/50 text-warm-white rounded-md px-3 h-11 text-sm"><option value="">Select student…</option>{students.filter(s => ["enrolled", "active"].includes(s.status)).map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}</select>
-                  <Input type="date" id="att-date" className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11" />
-                  <select id="att-status" className="bg-dark-deep/60 border border-dark-border/50 text-warm-white rounded-md px-3 h-11 text-sm"><option value="present">Present</option><option value="absent">Absent</option><option value="excused">Excused</option></select>
-                </div>
-                <Button onClick={async () => { if (!attendanceStudent) return; const date = (document.getElementById("att-date") as HTMLInputElement).value; const status = (document.getElementById("att-status") as HTMLSelectElement).value; await api("/api/academy/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studentId: attendanceStudent, date, status }) }); alert("Attendance recorded"); }} className="mt-3 bg-gradient-to-r from-brand to-brand-light text-dark-deep text-sm px-4 py-2 rounded-lg">Record</Button>
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-2xl font-bold text-warm-white">Attendance</h2>
+                <p className="text-text-muted text-sm mt-1">Mark attendance for an entire class in one go.</p>
               </div>
+              <AttendanceBulkCapture courses={courses} onSaved={() => { loadDashboard(); toast({ title: "Attendance saved", description: "Bulk attendance record updated." }); }} />
             </div>
           )}
 
           {/* ASSESSMENTS VIEW */}
           {activeView === "assessments" && (
-            <div>
-              <h1 className="text-warm-white font-bold text-xl sm:text-2xl mb-6">Assessments</h1>
-              <div className="glass rounded-xl p-5 border-brand/10">
-                <h3 className="text-warm-white font-semibold text-sm mb-3">Record Assessment</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <select id="assess-student" className="bg-dark-deep/60 border border-dark-border/50 text-warm-white rounded-md px-3 h-11 text-sm"><option value="">Select student…</option>{students.filter(s => ["enrolled", "active"].includes(s.status)).map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}</select>
-                  <Input id="assess-module" placeholder="Module title" className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" />
-                  <select id="assess-result" className="bg-dark-deep/60 border border-dark-border/50 text-warm-white rounded-md px-3 h-11 text-sm"><option value="pass">Pass</option><option value="not-yet-competent">Not Yet Competent</option></select>
-                  <Input id="assess-mark" placeholder="Mark/score (optional)" className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm" />
-                </div>
-                <Textarea id="assess-comments" placeholder="Trainer comments (optional)" rows={2} className="bg-dark-deep/60 border-dark-border/50 text-warm-white mt-3 text-sm resize-none" />
-                <Button onClick={async () => { const sid = (document.getElementById("assess-student") as HTMLSelectElement).value; if (!sid) return; await api("/api/academy/assessments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studentId: sid, moduleTitle: (document.getElementById("assess-module") as HTMLInputElement).value, result: (document.getElementById("assess-result") as HTMLSelectElement).value, mark: (document.getElementById("assess-mark") as HTMLInputElement).value, comments: (document.getElementById("assess-comments") as HTMLTextAreaElement).value }) }); alert("Assessment recorded"); }} className="mt-3 bg-gradient-to-r from-brand to-brand-light text-dark-deep text-sm px-4 py-2 rounded-lg">Record Assessment</Button>
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-2xl font-bold text-warm-white">Assessments</h2>
+                <p className="text-text-muted text-sm mt-1">Gradebook view — capture pass / not-yet-competent results per module.</p>
               </div>
+              <AssessmentGradebook courses={courses} />
             </div>
           )}
 
@@ -548,9 +604,9 @@ export default function AdminPage() {
                         <td className="p-3"><div className="text-warm-white font-medium text-sm">{s.fullName}</div></td>
                         <td className="p-3 hidden sm:table-cell text-text-muted text-xs">{String(s.selectedCourses || s.program || "").slice(0, 25)}</td>
                         <td className="p-3"><span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full border ${statusColors[s.status] || ""}`}>{s.status}</span></td>
-                        <td className="p-3">{s.certificates?.length > 0 ? <span className="text-green-400 text-xs font-mono">{s.certificates[0].certificateNumber}</span> : <span className="text-text-muted text-xs">—</span>}</td>
+                        <td className="p-3">{(s.certificates?.length ?? 0) > 0 ? <span className="text-green-400 text-xs font-mono">{s.certificates![0].certificateNumber}</span> : <span className="text-text-muted text-xs">—</span>}</td>
                         <td className="p-3 text-right">
-                          {s.certificates?.length > 0 ? <button onClick={() => window.open(`/training/certificate/${s.certificates[0].id}`, "_blank")} className="p-1.5 rounded hover:bg-brand/15 text-text-muted hover:text-brand" title="View"><Download className="w-3.5 h-3.5" /></button> : <button onClick={() => issueCertificate(s.id)} className="p-1.5 rounded hover:bg-green-500/15 text-text-muted hover:text-green-400" title="Issue Certificate"><Award className="w-3.5 h-3.5" /></button>}
+                          {(s.certificates?.length ?? 0) > 0 ? <button onClick={() => window.open(`/training/certificate/${s.certificates![0].id}`, "_blank")} className="p-1.5 rounded hover:bg-brand/15 text-text-muted hover:text-brand" title="View"><Download className="w-3.5 h-3.5" /></button> : <button onClick={() => issueCertificate(s.id)} className="p-1.5 rounded hover:bg-green-500/15 text-text-muted hover:text-green-400" title="Issue Certificate"><Award className="w-3.5 h-3.5" /></button>}
                         </td>
                       </tr>
                     ))}
@@ -562,31 +618,32 @@ export default function AdminPage() {
           )}
 
           {/* USERS VIEW */}
-          {activeView === "users" && user.role === "super" && (
-            <div>
-              <div className="flex items-center justify-between mb-6"><h1 className="text-warm-white font-bold text-xl sm:text-2xl">Users & Permissions</h1><Button onClick={() => setShowAddUser(!showAddUser)} variant="outline" className="border-brand/30 text-brand hover:bg-brand/10 text-xs px-4 py-2 rounded-lg">{showAddUser ? "Cancel" : "+ Add User"}</Button></div>
-              {showAddUser && <AddUserForm onCreated={() => { setShowAddUser(false); loadUsers(); }} />}
-              <div className="glass rounded-xl border-brand/10 overflow-hidden">
-                <div className="overflow-x-auto"><table className="w-full text-sm">
-                  <thead><tr className="border-b border-dark-border/30 text-text-muted text-xs uppercase tracking-wider"><th className="text-left p-3">Name</th><th className="text-left p-3 hidden sm:table-cell">Email</th><th className="text-left p-3">Role</th><th className="text-left p-3 hidden sm:table-cell">Status</th></tr></thead>
-                  <tbody>
-                    {users.map(u => (
-                      <tr key={u.id} className="border-b border-dark-border/20"><td className="p-3 text-warm-white font-medium">{u.name}</td><td className="p-3 hidden sm:table-cell text-text-muted">{u.email}</td><td className="p-3"><span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full border ${u.role === "super" ? "bg-brand/15 text-brand border-brand/30" : "bg-accent/15 text-accent border-accent/30"}`}>{roleLabels[u.role] || u.role}</span></td><td className="p-3 hidden sm:table-cell">{u.active ? <span className="text-green-400 text-xs">Active</span> : <span className="text-red-400 text-xs">Inactive</span>}</td></tr>
-                    ))}
-                  </tbody>
-                </table></div>
-              </div>
-            </div>
+          {activeView === "users" && (
+            <UserManagementPanel users={users} currentUser={user} onUsersChanged={loadUsers} />
           )}
 
           {/* REPORTS VIEW */}
           {activeView === "reports" && (
-            <div>
-              <h1 className="text-warm-white font-bold text-xl sm:text-2xl mb-6">Reports</h1>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {dashStats.map(s => (<div key={s.label} className="glass rounded-xl p-4 border-brand/10"><s.icon className={`w-5 h-5 ${s.color} mb-2`} /><div className="text-2xl font-bold text-warm-white">{s.value}</div><div className="text-text-muted text-xs">{s.label}</div></div>))}
-                <div className="glass rounded-xl p-4 border-brand/10"><BookOpen className="w-5 h-5 text-accent mb-2" /><div className="text-2xl font-bold text-warm-white">{courses.length}</div><div className="text-text-muted text-xs">Active Courses</div></div>
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-bold text-warm-white">Reports & Analytics</h2>
+                  <p className="text-text-muted text-sm mt-1">Enrolment trends, completion rates, attendance and assessment summaries.</p>
+                </div>
+                <CSVExportButtons />
               </div>
+              <ReportsCharts />
+            </div>
+          )}
+
+          {/* AUDIT VIEW */}
+          {activeView === "audit" && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-2xl font-bold text-warm-white">Audit Log</h2>
+                <p className="text-text-muted text-sm mt-1">Every action taken in the system, newest first.</p>
+              </div>
+              <AuditLogViewer />
             </div>
           )}
 
@@ -608,6 +665,13 @@ export default function AdminPage() {
 
       {/* Edit modal */}
       {editing && <EditModal student={editing} onClose={() => setEditing(null)} onSave={updateStudent} courses={courses} />}
+
+      {/* Student profile modal */}
+      <StudentProfileModal
+        studentId={profileStudentId}
+        onClose={() => setProfileStudentId(null)}
+        onEdit={(student) => { setProfileStudentId(null); setEditing(student as unknown as Student); }}
+      />
     </div>
   );
 }
@@ -618,13 +682,19 @@ function AddCourseForm({ onCreated }: { onCreated: () => void }) {
   const [form, setForm] = useState({ code: "", title: "", description: "", duration: "", deliveryMethod: "", entryRequirements: "" });
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const { toast } = useToast();
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault(); setCreating(true); setError(null);
     try {
       const res = await fetch("/api/academy/courses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", ...form }) });
       const data = await res.json(); if (!res.ok || !data.ok) throw new Error(data.error);
+      toast({ title: "Course created", description: `"${form.title || form.code}" has been added.` });
       onCreated();
-    } catch (err) { setError(err instanceof Error ? err.message : "Failed."); } finally { setCreating(false); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed.";
+      setError(msg);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally { setCreating(false); }
   };
   return (
     <form onSubmit={handleCreate} className="glass rounded-xl p-4 border-brand/10 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -644,13 +714,19 @@ function AddUserForm({ onCreated }: { onCreated: () => void }) {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "admin" });
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const { toast } = useToast();
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault(); setCreating(true); setError(null);
     try {
       const res = await fetch("/api/academy/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const data = await res.json(); if (!res.ok || !data.ok) throw new Error(data.error);
+      toast({ title: "User created", description: `"${form.name}" (${form.role}) can now sign in.` });
       onCreated();
-    } catch (err) { setError(err instanceof Error ? err.message : "Failed."); } finally { setCreating(false); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed.";
+      setError(msg);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally { setCreating(false); }
   };
   return (
     <form onSubmit={handleCreate} className="glass rounded-xl p-4 border-brand/10 mb-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -667,13 +743,19 @@ function ManualCertForm({ onGenerated, courses }: { onGenerated: (certId: string
   const [form, setForm] = useState({ fullName: "", idNumber: "", programName: "", issueDate: new Date().toISOString().split("T")[0] });
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const { toast } = useToast();
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault(); setCreating(true); setError(null);
     try {
       const res = await fetch("/api/academy/certificate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "manual", ...form }) });
       const data = await res.json(); if (!res.ok || !data.ok) throw new Error(data.error);
+      toast({ title: "Certificate issued", description: `Manual certificate for "${form.fullName}" has been generated.` });
       onGenerated(data.certificate?.id || null);
-    } catch (err) { setError(err instanceof Error ? err.message : "Failed."); } finally { setCreating(false); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed.";
+      setError(msg);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally { setCreating(false); }
   };
   return (
     <form onSubmit={handleCreate} className="glass rounded-xl p-4 border-brand/10 mb-4 grid grid-cols-1 sm:grid-cols-5 gap-3">

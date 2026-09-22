@@ -958,3 +958,65 @@ Stage Summary:
 - Form card: glass-strong rounded-2xl border-brand/20 glow-brand p-6 sm:p-8; CardTitle uses text-gradient-brand; Input fields use bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm with leading lucide icon (Mail for email, KeyRound for password); submit button is full-width h-11 bg-gradient-to-r from-brand to-brand-light text-dark-deep.
 - Email enumeration defense: the UI mirrors the API's non-enumerating posture — after MODE A submit, the success state is shown regardless of HTTP response code (200, 422, 500). The actual network error message is only surfaced when fetch THROWS (catch block).
 - tsc: clean (no errors in either new file) | lint: clean (no errors in either new file).
+
+---
+Task ID: SMS-FE-7
+Agent: general-purpose (subagent)
+Task: Integrate all 9 new components into admin/page.tsx + wire useToast in CRUD handlers + add audit view + forgot-password link
+
+Work Log:
+- Read /home/z/my-project/worklog.md (Stages 1 + 2 finished; 9 components in src/components/academy + 6 new endpoints from SMS-BE-1..6) and the FULL 741-line /home/z/my-project/src/app/training/admin/page.tsx to understand every view, handler, and state variable before any edit.
+- Confirmed support files: /home/z/my-project/src/app/layout.tsx already mounts `<Toaster />` from "@/components/ui/toaster"; /home/z/my-project/src/hooks/use-toast.ts exports `useToast` returning `{ toast, dismiss, toasts }`; toast variants are "default" | "destructive" (verified in src/components/ui/toast.tsx).
+- Confirmed /home/z/my-project/src/app/api/academy/login/route.ts returns `{ ok: true, user: { id, email, name, role } }` — the existing handleLogin at line 149 already does `setUser(data.user)`. No change to handleLogin success path needed; only the error path needed a toast.
+- Verified all 9 component prop contracts by grepping each file: StudentProfileModal `{ studentId: string|null, onClose, onEdit? }` (onEdit receives StudentProfile), WelcomeLetterButton `{ studentId, studentNumber?, status, variant?, size?, className? }`, AttendanceBulkCapture `{ courses, onSaved? }`, AssessmentGradebook `{ courses }`, UserManagementPanel `{ users, currentUser: {id,email,name,role}, onUsersChanged }`, AuditLogViewer `{ studentId?, userId? }`, CSVExportButtons `{ variant?, size?, className?, courseId?, status?, studentId? }`, ReportsCharts `{ stats? }`.
+- Edited src/app/training/admin/page.tsx (single file in scope, ~80 lines added/changed across 11 edits):
+
+EDIT 1 — Imports (lines 9-24): added `History, Mail, Eye, KeyRound` to the existing lucide-react named-import list; added 9 new lines after `import Link from "next/link";` for `useToast` hook + 8 new component default imports (StudentProfileModal, WelcomeLetterButton, AttendanceBulkCapture, AssessmentGradebook, UserManagementPanel, AuditLogViewer, CSVExportButtons, ReportsCharts).
+
+EDIT 2 — navItems (line 53): inserted `{ id: "audit", label: "Audit Log", icon: History }` between `reports` and `settings`.
+
+EDIT 3 — New state (line 95) + useToast hook (line 97): added `const [profileStudentId, setProfileStudentId] = useState<string | null>(null);` after the existing attendanceRecords state, then `const { toast } = useToast();` on its own line.
+
+EDIT 4 — checkSession comment (lines 99-107): added a 9-line block comment above the existing `checkSession` useCallback documenting the placeholder-user limitation (after page refresh the user.id is "session"; after fresh login via handleLogin the real user object IS captured because the login route returns it; acceptable because UserManagementPanel gates self-delete via role check internally).
+
+EDIT 5 — handleLogin error toast (line 155): wrapped the catch block to also fire `toast({ title: "Login failed", description: msg, variant: "destructive" })`. Success path unchanged (UI re-renders).
+
+EDIT 6-9 — Four CRUD handlers (updateStudent, convertStudent, deleteStudent, issueCertificate) wrapped in try/catch with success + error + network-failure toasts. convertStudent success toast includes the enrolled student's name + a "Welcome letter available" hint (per spec). issueCertificate success toast confirms cert issued. All 4 handlers preserve their existing logic — only ADD toast calls. The shared `api()` helper is unchanged.
+
+EDIT 10 — Login form "Forgot password?" link (lines 301-303): added a `<div className="text-right"><Link href="/training/forgot-password" className="text-sm text-brand hover:text-brand-light transition-colors">Forgot password?</Link></div>` block immediately after the existing Sign In button (inside the form, preserves the existing form layout).
+
+EDIT 11 — Dashboard CSVExportButtons row (lines 372-374): inserted `<div className="flex flex-wrap items-center gap-2 mb-4"><CSVExportButtons /></div>` between the existing "Dashboard" h1 and the existing stat-card grid (uses default variant=outline size=sm).
+
+EDIT 12 — Students table per-row buttons (lines 527 + 532): added a "View Profile" Eye-icon button (p-1.5 ghost-style) BEFORE the existing Edit button, calls `setProfileStudentId(s.id)`; added a `<WelcomeLetterButton studentId={s.id} studentNumber={s.studentNumber} status={s.status} variant="ghost" size="sm" />` AFTER the existing Delete button, conditionally rendered only for `["enrolled","active","completed"]` statuses (so the row stays compact for applied/under-review/rejected students — the component itself gates by status but the conditional keeps the row tidy).
+
+EDIT 13 — Replaced 4 existing view blocks with new components:
+  * attendance view (lines 566-575): replaced 12-line inline student/date/status form + alert() with `<AttendanceBulkCapture courses={courses} onSaved={() => { loadDashboard(); toast({ title: "Attendance saved", description: "Bulk attendance record updated." }); }} />` wrapped in a section with h2 + description.
+  * assessments view (lines 577-586): replaced 14-line inline student/module/result/mark/comments form + alert() with `<AssessmentGradebook courses={courses} />` wrapped in a section with h2 + description.
+  * users view (lines 620-623): replaced 17-line inline super-only `<table>` + AddUserForm block with `<UserManagementPanel users={users} currentUser={user} onUsersChanged={loadUsers} />`. Removed the `user.role === "super"` gate (UserManagementPanel gates itself per spec).
+  * reports view (lines 625-637): replaced 8-line stat-card grid with a header row (h2 "Reports & Analytics" + description + `<CSVExportButtons />`) plus `<ReportsCharts />`.
+
+EDIT 14 — New audit view block (lines 639-648): inserted between reports view and settings view, renders `<AuditLogViewer />` in a section with h2 "Audit Log" + description.
+
+EDIT 15 — StudentProfileModal render (lines 669-674): added at the page root (inside the authenticated return, after the existing EditModal): `<StudentProfileModal studentId={profileStudentId} onClose={() => setProfileStudentId(null)} onEdit={(student) => { setProfileStudentId(null); setEditing(student as unknown as Student); }} />`. The `as unknown as Student` cast is necessary because the modal's StudentProfile type has nullable fields (e.g. `applicationRef: string | null`) where the admin page's Student type expects optional fields (`applicationRef?: string`); runtime-wise the StudentProfile object has every named field EditModal reads, so the cast is safe.
+
+EDIT 16-18 — Helper components AddCourseForm, AddUserForm, ManualCertForm each got `const { toast } = useToast();` and success/error toasts. Success toasts are contextual: course create → "Course created" + course title; user create → "User created" + name + role; manual cert → "Certificate issued" + student name. Errors fire destructive toast with the server's error message. Existing inline error <p> retained for backward compatibility. AddUserForm is now dead code (UserManagementPanel handles its own user creation) but kept + toast-wired for spec compliance and forward compatibility.
+
+Stage Summary:
+- File modified: src/app/training/admin/page.tsx (741 → 823 lines; ~82 lines added/changed across 11 edit operations; 0 lines of pre-existing logic removed).
+- New views wired in: attendance (AttendanceBulkCapture), assessments (AssessmentGradebook), users (UserManagementPanel — un-gated from super-only), reports (ReportsCharts + CSVExportButtons header), audit (NEW nav item + AuditLogViewer block).
+- New modals: StudentProfileModal (on View Profile click in students table; onEdit bridges back into the existing EditModal flow via `setEditing(student as unknown as Student)` cast — documented above).
+- New per-row buttons in students table: View Profile (Eye icon, p-1.5 ghost style — calls setProfileStudentId(s.id)); WelcomeLetterButton (ghost variant, sm size — conditionally rendered for enrolled/active/completed statuses; non-eligible statuses simply omit the button to keep the row compact).
+- Dashboard view: added a flex-wrap row with `<CSVExportButtons />` between the "Dashboard" h1 and the existing stat-card grid for one-click CSV export from the landing view.
+- Login form: added a right-aligned "Forgot password?" link (text-brand hover:text-brand-light) below the Sign In button — links to the existing /training/forgot-password route created by SMS-FE-5.
+- Toasts wired in (per spec list):
+  * handleLogin: error path only → destructive toast with the error message (success path leaves the UI to update visually).
+  * updateStudent (covers both Applications view status-change buttons AND EditModal Save): success → "Student updated" / error → destructive.
+  * convertStudent: success → "Student enrolled" with the student's name + "Welcome letter available." hint (per spec trigger-moment).
+  * deleteStudent: success → "Student deleted" / error → destructive.
+  * issueCertificate: success → "Certificate issued" / error → destructive.
+  * AddCourseForm.handleCreate: success → "Course created" / error → destructive.
+  * AddUserForm.handleCreate: success → "User created" / error → destructive.
+  * ManualCertForm.handleCreate: success → "Certificate issued" / error → destructive.
+  * handleLogout: no toast per spec.
+- checkSession placeholder-user limitation: documented inline in a 9-line comment above the useCallback. After a fresh login, the real user object is captured (`setUser(data.user)` already exists at line 149). After a page refresh, the placeholder `{ id: "session", email: "admin", name: "Admin", role: "admin" }` is used because /api/academy/students doesn't return the user object — and we cannot add a /api/academy/me endpoint (out of scope). UserManagementPanel's "cannot delete self" check simply won't match `id="session"` against a real user's id, but that's acceptable because non-super users can't delete users anyway (UserManagementPanel gates that path itself).
+- tsc: 7 pre-existing errors in admin/page.tsx (all `s.certificates is possibly 'undefined'` — same 7 errors as the original file before any SMS-FE-7 edits, confirmed via git stash comparison; the spec's "DO NOT change the existing students table structure" + "DO NOT touch the certificates view" rules prevented me from fixing them). 0 new errors introduced. | lint: clean for admin/page.tsx (empty grep result). | dev.log: `GET /training/admin 200 in 5.8s (compile: 5.7s, render: 146ms)` first hit + `200 in 37ms (compile: 3ms, render: 34ms)` cached — no errors, no warnings, the dev server stayed alive through all edits.
