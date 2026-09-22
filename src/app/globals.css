@@ -168,19 +168,54 @@
   background: #1e90ff;
 }
 
-/* Glassmorphism Utility */
+/* Glassmorphism Utility
+ *
+ * On desktop (devices with a fine pointer + hover capability) we apply
+ * `backdrop-filter: blur()` for the true glassmorphism effect.
+ *
+ * On touch devices (iOS / Android / iPad), `backdrop-filter` is the #1
+ * Safari performance killer — each scroll frame recomputes a blur shader
+ * for every glass element on the page. With ~25 glass elements on the
+ * homepage, this destroys scroll performance on iOS.
+ *
+ * So on touch devices we use a denser static rgba() background instead.
+ * Visually almost indistinguishable, fraction of the GPU cost.
+ */
 .glass {
-  background: rgba(15, 31, 31, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(15, 31, 31, 0.88);
   border: 1px solid rgba(30, 144, 255, 0.1);
 }
 
 .glass-strong {
-  background: rgba(15, 31, 31, 0.85);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
+  background: rgba(15, 31, 31, 0.96);
   border: 1px solid rgba(30, 144, 255, 0.15);
+}
+
+/* Full glassmorphism (with backdrop-filter blur) only on real desktops. */
+@media (hover: hover) and (pointer: fine) {
+  .glass {
+    background: rgba(15, 31, 31, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .glass-strong {
+    background: rgba(15, 31, 31, 0.85);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+  }
+}
+
+/* Respect users who prefer reduced motion (accessibility + battery saver). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* 3D Card Transform */

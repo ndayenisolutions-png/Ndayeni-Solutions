@@ -1,8 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
-import { useScroll, useTransform, motion } from "framer-motion";
-import dynamic from "next/dynamic";
+import { useRef, useEffect } from "react";
 import {
   ArrowDown,
   Sparkles,
@@ -22,12 +20,11 @@ import { Button } from "@/components/ui/button";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { sectionImages } from "@/lib/section-images";
+import HeroScene from "./HeroScene";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
-
-const HeroScene = dynamic(() => import("./HeroScene"), { ssr: false });
 
 const stats = [
   { icon: Users, label: "Clients Served", value: "100+" },
@@ -62,32 +59,16 @@ export default function Hero() {
   const trustRef = useRef<HTMLDivElement>(null);
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
 
-  // 3D scene is heavy on iOS / mobile Safari (slow WebGL init, large
-  // three.js bundle). Detect mobile/tablet via a resize matchMedia listener
-  // and skip the 3D scene there — the static background image + gradients
-  // look great on their own. This makes the hero load near-instantly on iOS.
-  const [show3D, setShow3D] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(min-width: 1024px)");
-    // Also exclude touch devices (iOS/iPad) which choke on WebGL.
-    const update = () => {
-      const isTouch = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      setShow3D(mq.matches && !isTouch);
-    };
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end start"],
-  });
-
-  const y = useTransform(scrollYProgress, [0, 1], [0, 150]);
-  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
-  const scale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95]);
+  // NOTE: Previously this component gated the heavy three.js HeroScene on
+  // touch devices via a matchMedia + userAgent check, and used
+  // framer-motion's useScroll + useTransform for a scroll-linked parallax.
+  // Both have been removed:
+  //   - The new CSS-only HeroScene is ~3KB and runs smoothly on every
+  //     device, so it's always rendered.
+  //   - Scroll-linked transforms caused constant repaints on iOS Safari
+  //     (which is already overworked by the page's GSAP ScrollTrigger
+  //     instances + glass surfaces). Removing them makes iOS scroll
+  //     materially smoother.
 
   useEffect(() => {
     const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
@@ -132,11 +113,12 @@ export default function Hero() {
       ref={containerRef}
       className="relative min-h-screen flex items-center overflow-hidden"
     >
-      {/* 3D WebGL Background — desktop only (skipped on mobile/iOS for performance) */}
-      {show3D && <HeroScene />}
+      {/* Lightweight CSS animated background — always rendered (was heavy three.js, now ~3KB). */}
+      <HeroScene />
 
-      {/* Background image (visible on mobile where 3D scene is skipped;
-           subtler on desktop where 3D scene overlays it) */}
+      {/* Background image (always visible; was gated to opacity 0.25 on desktop
+           when the 3D scene overlaid it, now fixed at 0.4 since the new
+           HeroScene is just a soft glow + orbs overlay). */}
       <div
         aria-hidden="true"
         className="absolute inset-0 z-0 pointer-events-none"
@@ -144,7 +126,7 @@ export default function Hero() {
           backgroundImage: `url(${sectionImages.abstract})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          opacity: show3D ? 0.25 : 0.45,
+          opacity: 0.4,
         }}
       />
 
@@ -171,10 +153,9 @@ export default function Hero() {
       {/* Bottom fade into next section */}
       <div aria-hidden="true" className="absolute bottom-0 left-0 right-0 h-24 sm:h-28 bg-gradient-to-t from-dark-deep via-dark-deep/70 to-transparent z-[4] pointer-events-none" />
 
-      {/* Content — spread across the full block */}
-      <motion.div
+      {/* Content — spread across the full block (no scroll-linked parallax; was causing iOS Safari repaints) */}
+      <div
         ref={contentRef}
-        style={{ y, opacity, scale }}
         className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-12 sm:pb-0"
       >
         {/* Badge — centered across the full block */}
@@ -349,7 +330,7 @@ export default function Hero() {
             ))}
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Scroll Indicator — hidden on very small screens */}
       <div
