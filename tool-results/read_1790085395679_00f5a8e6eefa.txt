@@ -1,0 +1,903 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useRef, useState, useEffect } from "react";
+     4→     4→import {
+     5→     5→  Globe,
+     6→     6→  Settings,
+     7→     7→  Palette,
+     8→     8→  GraduationCap,
+     9→     9→  Monitor,
+    10→    10→  Headphones,
+    11→    11→  ArrowRight,
+    12→    12→  Check,
+    13→    13→  Phone,
+    14→    14→  Target,
+    15→    15→  Clock,
+    16→    16→  Package,
+    17→    17→  Wifi,
+    18→    18→  Cctv,
+    19→    19→  Printer,
+    20→    20→  Server,
+    21→    21→  ChevronDown,
+    22→    22→  Workflow,
+    23→    23→  type LucideIcon,
+    24→    24→} from "lucide-react";
+    25→    25→import { Card, CardContent } from "@/components/ui/card";
+    26→    26→import {
+    27→    27→  Dialog,
+    28→    28→  DialogContent,
+    29→    29→  DialogHeader,
+    30→    30→  DialogTitle,
+    31→    31→  DialogDescription,
+    32→    32→} from "@/components/ui/dialog";
+    33→    33→import { Button } from "@/components/ui/button";
+    34→    34→import gsap from "gsap";
+    35→    35→import { ScrollTrigger } from "gsap/ScrollTrigger";
+    36→    36→import { sectionImages } from "@/lib/section-images";
+    37→    37→
+    38→    38→if (typeof window !== "undefined") {
+    39→    39→  gsap.registerPlugin(ScrollTrigger);
+    40→    40→}
+    41→    41→
+    42→    42→type ServiceDetails = {
+    43→    43→  overview: string;
+    44→    44→  included: string[];
+    45→    45→  idealFor: string;
+    46→    46→  timeline: string;
+    47→    47→  deliverable: string;
+    48→    48→};
+    49→    49→
+    50→    50→type Tier = "primary" | "secondary" | "supporting";
+    51→    51→
+    52→    52→type Service = {
+    53→    53→  icon: LucideIcon;
+    54→    54→  title: string;
+    55→    55→  description: string;
+    56→    56→  accent: string;
+    57→    57→  accentShadow: string;
+    58→    58→  accentBg: string;
+    59→    59→  accentText: string;
+    60→    60→  accentBorder: string;
+    61→    61→  tag: string;
+    62→    62→  tagColor: string;
+    63→    63→  tier: Tier;
+    64→    64→  category: string;
+    65→    65→  image: string;
+    66→    66→  details: ServiceDetails;
+    67→    67→};
+    68→    68→
+    69→    69→type Category = {
+    70→    70→  name: string;
+    71→    71→  blurb: string;
+    72→    72→  icon: LucideIcon;
+    73→    73→  accent: string;
+    74→    74→  accentBg: string;
+    75→    75→  accentText: string;
+    76→    76→  accentBorder: string;
+    77→    77→  image: string;
+    78→    78→};
+    79→    79→
+    80→    80→const services: Service[] = [
+    81→    81→  {
+    82→    82→    icon: Headphones,
+    83→    83→    title: "IT Support & Outsourcing",
+    84→    84→    description:
+    85→    85→      "Don't have an IT department? We become yours — on-site and remote support, maintenance and monitoring for small businesses, shops, offices, NGOs and schools.",
+    86→    86→    accent: "from-brand to-brand-light",
+    87→    87→    accentShadow: "shadow-brand/20",
+    88→    88→    accentBg: "bg-brand/10",
+    89→    89→    accentText: "text-brand",
+    90→    90→    accentBorder: "hover:border-brand/40",
+    91→    91→    tag: "For Small Businesses",
+    92→    92→    tagColor: "bg-brand/15 text-brand",
+    93→    93→    tier: "primary",
+    94→    94→    category: "IT & Infrastructure",
+    95→    95→    image: sectionImages.itsupport,
+    96→    96→    details: {
+    97→    97→      overview:
+    98→    98→        "Offload your day-to-day IT management to a team that treats your technology like our own. We handle everything from computer maintenance to network monitoring, so your team can focus on the work that actually makes you money.",
+    99→    99→      included: [
+   100→   100→        "On-site & remote support",
+   101→   101→        "Computer & network maintenance",
+   102→   102→        "Monthly health reports",
+   103→   103→        "Patch & update management",
+   104→   104→        "Vendor management",
+   105→   105→        "Priority response on callouts",
+   106→   106→      ],
+   107→   107→      idealFor:
+   108→   108→        "Small businesses, shops, offices, NGOs and schools without a dedicated IT department",
+   109→   109→      timeline: "Ongoing (monthly retainer)",
+   110→   110→      deliverable: "Managed IT environment + dedicated support channel",
+   111→   111→    },
+   112→   112→  },
+   113→   113→  {
+   114→   114→    icon: Monitor,
+   115→   115→    title: "Computer Repairs & Hardware",
+   116→   116→    description:
+   117→   117→      "Fast, reliable hardware and software repairs for laptops, desktops and peripherals. We diagnose honestly, quote before we fix, and get your systems back to you quickly — with data intact.",
+   118→   118→    accent: "from-accent to-emerald-400",
+   119→   119→    accentShadow: "shadow-accent/20",
+   120→   120→    accentBg: "bg-accent/10",
+   121→   121→    accentText: "text-accent",
+   122→   122→    accentBorder: "hover:border-accent/40",
+   123→   123→    tag: "Quick Fix",
+   124→   124→    tagColor: "bg-accent/15 text-accent",
+   125→   125→    tier: "primary",
+   126→   126→    category: "IT & Infrastructure",
+   127→   127→    image: sectionImages.repairs,
+   128→   128→    details: {
+   129→   129→      overview:
+   130→   130→        "Fast, reliable hardware and software repairs for laptops, desktops, and peripherals. We diagnose the issue honestly, quote before we fix, and get your system back to you as quickly as possible — with the data intact.",
+   131→   131→      included: [
+   132→   132→        "Hardware diagnosis & repair",
+   133→   133→        "Screen & keyboard replacement",
+   134→   134→        "Data recovery & backup",
+   135→   135→        "OS reinstall & optimization",
+   136→   136→        "Virus & malware removal",
+   137→   137→        "Hardware upgrade consulting (SSD, RAM)",
+   138→   138→      ],
+   139→   139→      idealFor:
+   140→   140→        "Anyone with a sick laptop, slow desktop, or failing hard drive",
+   141→   141→      timeline: "1–3 business days",
+   142→   142→      deliverable: "Repaired device + diagnosis report",
+   143→   143→    },
+   144→   144→  },
+   145→   145→  {
+   146→   146→    icon: Wifi,
+   147→   147→    title: "Networking & Wi-Fi",
+   148→   148→    description:
+   149→   149→      "From a single Wi-Fi router to a full Cat6 office network with managed switches and access points — we design, cable, configure and install networks that actually cover your space.",
+   150→   150→    accent: "from-brand-light to-yellow-400",
+   151→   151→    accentShadow: "shadow-brand-light/20",
+   152→   152→    accentBg: "bg-brand-light/10",
+   153→   153→    accentText: "text-brand-light",
+   154→   154→    accentBorder: "hover:border-brand-light/40",
+   155→   155→    tag: "Essential",
+   156→   156→    tagColor: "bg-brand-light/15 text-brand-light",
+   157→   157→    tier: "primary",
+   158→   158→    category: "IT & Infrastructure",
+   159→   159→    image: sectionImages.network,
+   160→   160→    details: {
+   161→   161→      overview:
+   162→   162→        "Reliable connectivity is the backbone of any modern business or home. We handle the full scope — site survey, cabling, switch and router configuration, access point placement, and ongoing network support.",
+   163→   163→      included: [
+   164→   164→        "Site survey & network design",
+   165→   165→        "Cat6 / Cat6a cabling & termination",
+   166→   166→        "Router & switch configuration",
+   167→   167→        "Wi-Fi access point installation",
+   168→   168→        "Network security & VLAN setup",
+   169→   169→        "Ongoing network support",
+   170→   170→      ],
+   171→   171→      idealFor:
+   172→   172→        "Offices, shops and homes needing reliable, well-covered Wi-Fi and wired networking",
+   173→   173→      timeline: "1–3 days (depending on scope)",
+   174→   174→      deliverable: "Installed & tested network + configuration documentation",
+   175→   175→    },
+   176→   176→  },
+   177→   177→  {
+   178→   178→    icon: Cctv,
+   179→   179→    title: "CCTV & Security Technology",
+   180→   180→    description:
+   181→   181→      "Protect what matters with professionally installed CCTV systems — cameras, NVRs, remote viewing and night vision, configured so you can check in from anywhere on your phone.",
+   182→   182→    accent: "from-brand to-accent",
+   183→   183→    accentShadow: "shadow-brand/20",
+   184→   184→    accentBg: "bg-brand/10",
+   185→   185→    accentText: "text-brand",
+   186→   186→    accentBorder: "hover:border-brand/40",
+   187→   187→    tag: "Popular",
+   188→   188→    tagColor: "bg-brand/15 text-brand",
+   189→   189→    tier: "primary",
+   190→   190→    category: "IT & Infrastructure",
+   191→   191→    image: sectionImages.cctv,
+   192→   192→    details: {
+   193→   193→      overview:
+   194→   194→        "From a 4-camera home setup to a multi-channel business system, we supply, install and configure CCTV that gives you eyes on your property 24/7. Every install includes remote viewing setup so you can check in from your phone.",
+   195→   195→      included: [
+   196→   196→        "Site survey & camera placement plan",
+   197→   197→        "Camera supply & mounting",
+   198→   198→        "NVR / DVR configuration",
+   199→   199→        "Night-vision & motion detection setup",
+   200→   200→        "Mobile remote viewing app setup",
+   201→   201→        "Cabling & power (PoE) installation",
+   202→   202→      ],
+   203→   203→      idealFor:
+   204→   204→        "Shops, offices, homes and premises wanting visible security and remote monitoring",
+   205→   205→      timeline: "1–2 days (typical 4–8 camera install)",
+   206→   206→      deliverable: "Live CCTV system + mobile app access + documentation",
+   207→   207→    },
+   208→   208→  },
+   209→   209→  {
+   210→   210→    icon: Printer,
+   211→   211→    title: "Printer & Office Technology",
+   212→   212→    description:
+   213→   213→      "Printers, scanners, copiers and the tech that keeps an office moving. We supply, set up, configure and maintain office equipment — and fix it when it jams at the worst possible moment.",
+   214→   214→    accent: "from-accent to-cyan-400",
+   215→   215→    accentShadow: "shadow-accent/20",
+   216→   216→    accentBg: "bg-accent/10",
+   217→   217→    accentText: "text-accent",
+   218→   218→    accentBorder: "hover:border-accent/40",
+   219→   219→    tag: "Essential",
+   220→   220→    tagColor: "bg-accent/15 text-accent",
+   221→   221→    tier: "secondary",
+   222→   222→    category: "IT & Infrastructure",
+   223→   223→    image: sectionImages.printer,
+   224→   224→    details: {
+   225→   225→      overview:
+   226→   226→        "Office technology shouldn't be a daily frustration. We help you choose, set up and maintain the right printer and office equipment for your volume — and we're on call when paper jams, driver issues or connectivity problems strike.",
+   227→   227→      included: [
+   228→   228→        "Printer & copier supply & setup",
+   229→   229→        "Driver installation & network sharing",
+   230→   230→        "Wireless printing configuration",
+   231→   231→        "Scanner & document workflow setup",
+   232→   232→        "Routine maintenance & servicing",
+   233→   233→        "Troubleshooting & repairs",
+   234→   234→      ],
+   235→   235→      idealFor:
+   236→   236→        "Small offices and homes that rely on printing, scanning and copying",
+   237→   237→      timeline: "Same-day setup, ongoing support",
+   238→   238→      deliverable: "Configured office equipment + support channel",
+   239→   239→    },
+   240→   240→  },
+   241→   241→  {
+   242→   242→    icon: Globe,
+   243→   243→    title: "Web Design & Digital Presence",
+   244→   244→    description:
+   245→   245→      "Fast, responsive websites optimized for search — built to turn visitors into customers. We also set up your business email, Google profile and online listings.",
+   246→   246→    accent: "from-brand to-brand-light",
+   247→   247→    accentShadow: "shadow-brand/20",
+   248→   248→    accentBg: "bg-brand/10",
+   249→   249→    accentText: "text-brand",
+   250→   250→    accentBorder: "hover:border-brand/40",
+   251→   251→    tag: "Most Popular",
+   252→   252→    tagColor: "bg-brand/15 text-brand",
+   253→   253→    tier: "secondary",
+   254→   254→    category: "Digital Services",
+   255→   255→    image: sectionImages.webdesign,
+   256→   256→    details: {
+   257→   257→      overview:
+   258→   258→        "We design and build fast, responsive websites that rank well on Google and convert visitors into customers. Every site is built with modern tech, optimized for speed and SEO from day one, and designed to match your brand identity.",
+   259→   259→      included: [
+   260→   260→        "Custom responsive design (mobile-first)",
+   261→   261→        "On-page SEO optimization",
+   262→   262→        "Google Business Profile setup",
+   263→   263→        "Speed optimization (Core Web Vitals)",
+   264→   264→        "Business email setup",
+   265→   265→        "30 days post-launch support",
+   266→   266→      ],
+   267→   267→      idealFor:
+   268→   268→        "Small businesses, startups, and professionals needing a web presence that actually generates leads",
+   269→   269→      timeline: "2–4 weeks",
+   270→   270→      deliverable: "Live website + source files + SEO baseline report",
+   271→   271→    },
+   272→   272→  },
+   273→   273→  {
+   274→   274→    icon: Palette,
+   275→   275→    title: "Graphic Design & Branding",
+   276→   276→    description:
+   277→   277→      "Logos, brand systems and marketing materials that hold together across every touchpoint — from your website to your business card to your social media.",
+   278→   278→    accent: "from-brand to-accent",
+   279→   279→    accentShadow: "shadow-brand/20",
+   280→   280→    accentBg: "bg-brand/10",
+   281→   281→    accentText: "text-brand",
+   282→   282→    accentBorder: "hover:border-brand/40",
+   283→   283→    tag: "Creative",
+   284→   284→    tagColor: "bg-brand/15 text-brand",
+   285→   285→    tier: "supporting",
+   286→   286→    category: "Digital Services",
+   287→   287→    image: sectionImages.graphicdesign,
+   288→   288→    details: {
+   289→   289→      overview:
+   290→   290→        "Good branding isn't just a logo — it's a system. We start by understanding who you serve and what makes you different, then design a visual identity that holds together across every touchpoint.",
+   291→   291→      included: [
+   292→   292→        "Logo design (3 concepts)",
+   293→   293→        "Brand color & typography system",
+   294→   294→        "Business card & letterhead",
+   295→   295→        "Social media templates",
+   296→   296→        "Brand guidelines PDF",
+   297→   297→        "Source files (AI, SVG, PNG)",
+   298→   298→      ],
+   299→   299→      idealFor:
+   300→   300→        "New businesses needing a complete identity, or existing brands needing a refresh",
+   301→   301→      timeline: "1–3 weeks",
+   302→   302→      deliverable: "Brand kit + source files + guidelines PDF",
+   303→   303→    },
+   304→   304→  },
+   305→   305→  {
+   306→   306→    icon: Workflow,
+   307→   307→    title: "Digital Automation & Business Systems",
+   308→   308→    description:
+   309→   309→      "We help businesses simplify repetitive processes and work smarter through digital automation. From customer enquiries and bookings to forms, notifications, document generation and business workflows, we connect the tools you already use to save time and reduce manual work.",
+   310→   310→    accent: "from-accent to-brand",
+   311→   311→    accentShadow: "shadow-accent/20",
+   312→   312→    accentBg: "bg-accent/10",
+   313→   313→    accentText: "text-accent",
+   314→   314→    accentBorder: "hover:border-accent/40",
+   315→   315→    tag: "Work Smarter",
+   316→   316→    tagColor: "bg-accent/15 text-accent",
+   317→   317→    tier: "secondary",
+   318→   318→    category: "Digital Services",
+   319→   319→    image: sectionImages.automation,
+   320→   320→    details: {
+   321→   321→      overview:
+   322→   322→        "Most small businesses lose hours every week to repetitive manual work — capturing the same information twice, sending the same follow-ups, generating the same documents by hand. We build digital workflows that handle those tasks automatically, using tools and platforms your business can actually afford and maintain. No custom software development — just smart connections between the tools you already use, designed around how your business actually works.",
+   323→   323→      included: [
+   324→   324→        "Business Process Automation",
+   325→   325→        "Online Forms & Workflows",
+   326→   326→        "Customer & Lead Automation",
+   327→   327→        "Email & Notification Automation",
+   328→   328→        "Booking & Appointment Systems",
+   329→   329→        "Document & Invoice Automation",
+   330→   330→        "Microsoft 365 Automation",
+   331→   331→        "AI-Powered Business Solutions",
+   332→   332→      ],
+   333→   333→      idealFor:
+   334→   334→        "Small businesses, shops, offices and service providers who want to reduce repetitive admin work, respond to customers faster, and stop losing leads to slow manual processes",
+   335→   335→      timeline: "1–4 weeks (depending on scope)",
+   336→   336→      deliverable: "Configured automation workflows + documentation + training",
+   337→   337→    },
+   338→   338→  },
+   339→   339→  {
+   340→   340→    icon: GraduationCap,
+   341→   341→    title: "Digital Skills Training",
+   342→   342→    description:
+   343→   343→      "Practical, hands-on digital literacy for individuals and teams — from basic computer skills to productivity tools and cybersecurity awareness.",
+   344→   344→    accent: "from-brand-light to-brand",
+   345→   345→    accentShadow: "shadow-brand-light/20",
+   346→   346→    accentBg: "bg-brand-light/10",
+   347→   347→    accentText: "text-brand-light",
+   348→   348→    accentBorder: "hover:border-brand-light/40",
+   349→   349→    tag: "Growth",
+   350→   350→    tagColor: "bg-brand-light/15 text-brand-light",
+   351→   351→    tier: "supporting",
+   352→   352→    category: "Training",
+   353→   353→    image: sectionImages.training,
+   354→   354→    details: {
+   355→   355→      overview:
+   356→   356→        "Empower your team with practical, hands-on digital skills training. We offer customized programs ranging from basic computer literacy to advanced productivity tools, designed around your team's actual workflow.",
+   357→   357→      included: [
+   358→   358→        "Custom curriculum design",
+   359→   359→        "Beginner to advanced modules",
+   360→   360→        "Microsoft Office & Google Workspace",
+   361→   361→        "Basic cybersecurity awareness",
+   362→   362→        "Hands-on practice sessions",
+   363→   363→        "Certificate of completion",
+   364→   364→      ],
+   365→   365→      idealFor:
+   366→   366→        "Teams upgrading their digital capabilities, or individuals entering the job market",
+   367→   367→      timeline: "1–5 days (customizable)",
+   368→   368→      deliverable: "Training completion + reference materials",
+   369→   369→    },
+   370→   370→  },
+   371→   371→];
+   372→   372→
+   373→   373→const categories: Category[] = [
+   374→   374→  {
+   375→   375→    name: "IT & Infrastructure",
+   376→   376→    blurb:
+   377→   377→      "The technology that keeps your business running — set up, maintained and supported. Computers, networks, CCTV, printers and ongoing IT support.",
+   378→   378→    icon: Server,
+   379→   379→    accent: "from-brand to-brand-light",
+   380→   380→    accentBg: "bg-brand/10",
+   381→   381→    accentText: "text-brand",
+   382→   382→    accentBorder: "hover:border-brand/40",
+   383→   383→    image: sectionImages.network,
+   384→   384→  },
+   385→   385→  {
+   386→   386→    name: "Digital Services",
+   387→   387→    blurb:
+   388→   388→      "Your presence online and your digital operations — fast websites, branding, and the automation that keeps your business running without the manual grind.",
+   389→   389→    icon: Globe,
+   390→   390→    accent: "from-accent to-cyan-400",
+   391→   391→    accentBg: "bg-accent/10",
+   392→   392→    accentText: "text-accent",
+   393→   393→    accentBorder: "hover:border-accent/40",
+   394→   394→    image: sectionImages.webdesign,
+   395→   395→  },
+   396→   396→  {
+   397→   397→    name: "Training",
+   398→   398→    blurb:
+   399→   399→      "Practical digital skills that empower your team and grow your capabilities — from basic computer literacy to productivity tools.",
+   400→   400→    icon: GraduationCap,
+   401→   401→    accent: "from-brand-light to-yellow-400",
+   402→   402→    accentBg: "bg-brand-light/10",
+   403→   403→    accentText: "text-brand-light",
+   404→   404→    accentBorder: "hover:border-brand-light/40",
+   405→   405→    image: sectionImages.training,
+   406→   406→  },
+   407→   407→];
+   408→   408→
+   409→   409→function ServiceCard({
+   410→   410→  service,
+   411→   411→  index,
+   412→   412→  onOpen,
+   413→   413→  animate,
+   414→   414→}: {
+   415→   415→  service: Service;
+   416→   416→  index: number;
+   417→   417→  onOpen: () => void;
+   418→   418→  animate: boolean;
+   419→   419→}) {
+   420→   420→  const cardRef = useRef<HTMLDivElement>(null);
+   421→   421→
+   422→   422→  useEffect(() => {
+   423→   423→    const el = cardRef.current;
+   424→   424→    if (!el || !animate) return;
+   425→   425→
+   426→   426→    gsap.fromTo(
+   427→   427→      el,
+   428→   428→      { opacity: 0, y: 30 },
+   429→   429→      {
+   430→   430→        opacity: 1,
+   431→   431→        y: 0,
+   432→   432→        duration: 0.5,
+   433→   433→        delay: index * 0.07,
+   434→   434→        ease: "power3.out",
+   435→   435→      }
+   436→   436→    );
+   437→   437→  }, [index, animate]);
+   438→   438→
+   439→   439→  const handleKeyDown = (e: React.KeyboardEvent) => {
+   440→   440→    if (e.key === "Enter" || e.key === " ") {
+   441→   441→      e.preventDefault();
+   442→   442→      onOpen();
+   443→   443→    }
+   444→   444→  };
+   445→   445→
+   446→   446→  return (
+   447→   447→    <div ref={cardRef} style={animate ? { opacity: 0 } : undefined}>
+   448→   448→      <Card
+   449→   449→        role="button"
+   450→   450→        tabIndex={0}
+   451→   451→        aria-label={`View details for ${service.title}`}
+   452→   452→        onClick={onOpen}
+   453→   453→        onKeyDown={handleKeyDown}
+   454→   454→        className={`h-full bg-dark-card/80 backdrop-blur-sm border-dark-border/50 ${service.accentBorder} transition-all duration-500 overflow-hidden group relative cursor-pointer focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2 focus-visible:ring-offset-dark-deep hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98]`}
+   455→   455→      >
+   456→   456→        {/* Top Accent Bar */}
+   457→   457→        <div
+   458→   458→          aria-hidden="true"
+   459→   459→          className={`h-[2px] bg-gradient-to-r ${service.accent} opacity-30 group-hover:opacity-80 transition-opacity duration-500`}
+   460→   460→        />
+   461→   461→
+   462→   462→        {/* Visible image header band */}
+   463→   463→        <div className="card-image-header">
+   464→   464→          <img src={service.image} alt="" />
+   465→   465→          {/* Tag chip floating on the image */}
+   466→   466→          <span
+   467→   467→            className={`absolute top-3 left-3 z-10 text-[10px] tracking-[0.15em] uppercase font-bold ${service.tagColor} px-3 py-1.5 rounded-full backdrop-blur-md`}
+   468→   468→          >
+   469→   469→            {service.tag}
+   470→   470→          </span>
+   471→   471→        </div>
+   472→   472→
+   473→   473→        <CardContent className="p-5 sm:p-6 lg:p-7 relative z-10">
+   474→   474→          {/* Icon */}
+   475→   475→          <div className="relative mb-4">
+   476→   476→            <div
+   477→   477→              className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ${service.accentBg} flex items-center justify-center group-hover:scale-110 transition-all duration-500 relative`}
+   478→   478→            >
+   479→   479→              <service.icon className={`w-6 h-6 sm:w-7 sm:h-7 ${service.accentText}`} />
+   480→   480→              <div aria-hidden="true" className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${service.accent} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500`} />
+   481→   481→            </div>
+   482→   482→          </div>
+   483→   483→
+   484→   484→          {/* Title */}
+   485→   485→          <h3 className="text-warm-white font-bold text-base sm:text-lg mb-2 group-hover:text-brand transition-colors duration-300">
+   486→   486→            {service.title}
+   487→   487→          </h3>
+   488→   488→
+   489→   489→          {/* Description */}
+   490→   490→          <p className="text-text-muted text-sm leading-relaxed mb-3 sm:mb-4 line-clamp-3">
+   491→   491→            {service.description}
+   492→   492→          </p>
+   493→   493→
+   494→   494→          {/* View Details hint */}
+   495→   495→          <div className="flex items-center gap-2 text-xs font-medium text-text-muted/80 group-hover:text-brand transition-colors duration-300">
+   496→   496→            <span className="uppercase tracking-wider">View details</span>
+   497→   497→            <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+   498→   498→          </div>
+   499→   499→
+   500→   500→          {/* Bottom Accent Line */}
+   501→   501→          <div
+   502→   502→            aria-hidden="true"
+   503→   503→            className={`h-[2px] mt-3 sm:mt-4 bg-gradient-to-r ${service.accent} opacity-10 group-hover:opacity-50 transition-opacity duration-700 rounded-full`}
+   504→   504→          />
+   505→   505→        </CardContent>
+   506→   506→      </Card>
+   507→   507→    </div>
+   508→   508→  );
+   509→   509→}
+   510→   510→
+   511→   511→function ServiceModal({
+   512→   512→  service,
+   513→   513→  open,
+   514→   514→  onOpenChange,
+   515→   515→}: {
+   516→   516→  service: Service | null;
+   517→   517→  open: boolean;
+   518→   518→  onOpenChange: (open: boolean) => void;
+   519→   519→}) {
+   520→   520→  if (!service) return null;
+   521→   521→
+   522→   522→  const metaCards = [
+   523→   523→    {
+   524→   524→      icon: Target,
+   525→   525→      label: "Ideal For",
+   526→   526→      value: service.details.idealFor,
+   527→   527→      color: "text-brand",
+   528→   528→      bg: "bg-brand/10",
+   529→   529→    },
+   530→   530→    {
+   531→   531→      icon: Clock,
+   532→   532→      label: "Timeline",
+   533→   533→      value: service.details.timeline,
+   534→   534→      color: "text-accent",
+   535→   535→      bg: "bg-accent/10",
+   536→   536→    },
+   537→   537→    {
+   538→   538→      icon: Package,
+   539→   539→      label: "Deliverable",
+   540→   540→      value: service.details.deliverable,
+   541→   541→      color: "text-brand-light",
+   542→   542→      bg: "bg-brand-light/10",
+   543→   543→    },
+   544→   544→  ];
+   545→   545→
+   546→   546→  return (
+   547→   547→    <Dialog open={open} onOpenChange={onOpenChange}>
+   548→   548→      <DialogContent className="bg-dark-card/95 backdrop-blur-xl border-dark-border/60 max-w-2xl max-h-[90vh] overflow-y-auto p-0 w-[calc(100vw-1.5rem)] sm:w-full mx-auto">
+   549→   549→        {/* Header with gradient banner */}
+   550→   550→        <div className={`relative h-20 sm:h-24 bg-gradient-to-r ${service.accent} overflow-hidden`}>
+   551→   551→          <div className="absolute inset-0 bg-dark-deep/40" aria-hidden="true" />
+   552→   552→          <div className="absolute inset-0 opacity-30" aria-hidden="true"
+   553→   553→            style={{
+   554→   554→              backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)`,
+   555→   555→              backgroundSize: "16px 16px",
+   556→   556→            }}
+   557→   557→          />
+   558→   558→          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-dark-card to-transparent" aria-hidden="true" />
+   559→   559→          <DialogHeader className="absolute bottom-3 left-4 sm:left-6 right-6">
+   560→   560→            <div className="flex items-center gap-3 sm:gap-4">
+   561→   561→              <div className={`w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl ${service.accentBg} backdrop-blur-sm flex items-center justify-center border border-white/10`}>
+   562→   562→                <service.icon className={`w-5 h-5 sm:w-7 sm:h-7 ${service.accentText}`} />
+   563→   563→              </div>
+   564→   564→              <DialogTitle className="text-warm-white text-lg sm:text-2xl font-bold tracking-tight">
+   565→   565→                {service.title}
+   566→   566→              </DialogTitle>
+   567→   567→            </div>
+   568→   568→          </DialogHeader>
+   569→   569→        </div>
+   570→   570→
+   571→   571→        <div className="px-4 sm:px-6 pb-2">
+   572→   572→          <DialogDescription className="text-text-muted text-sm leading-relaxed mt-2">
+   573→   573→            {service.details.overview}
+   574→   574→          </DialogDescription>
+   575→   575→        </div>
+   576→   576→
+   577→   577→        {/* Included checklist */}
+   578→   578→        <div className="px-4 sm:px-6 mt-4">
+   579→   579→          <h4 className="text-warm-white text-sm font-semibold uppercase tracking-[0.15em] mb-3 flex items-center gap-2">
+   580→   580→            <Check className="w-4 h-4 text-accent" />
+   581→   581→            What&apos;s Included
+   582→   582→          </h4>
+   583→   583→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+   584→   584→            {service.details.included.map((item) => (
+   585→   585→              <div
+   586→   586→                key={item}
+   587→   587→                className="flex items-start gap-2.5 glass rounded-lg px-3 py-2.5 border-brand/10"
+   588→   588→              >
+   589→   589→                <div className={`w-5 h-5 rounded-full ${service.accentBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+   590→   590→                  <Check className={`w-3 h-3 ${service.accentText}`} />
+   591→   591→                </div>
+   592→   592→                <span className="text-warm-white/90 text-sm leading-snug">{item}</span>
+   593→   593→              </div>
+   594→   594→            ))}
+   595→   595→          </div>
+   596→   596→        </div>
+   597→   597→
+   598→   598→        {/* Meta cards */}
+   599→   599→        <div className="px-4 sm:px-6 mt-5">
+   600→   600→          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   601→   601→            {metaCards.map((meta) => (
+   602→   602→              <div
+   603→   603→                key={meta.label}
+   604→   604→                className="glass rounded-xl p-4 border-brand/10"
+   605→   605→              >
+   606→   606→                <div className="flex items-center gap-2 mb-2">
+   607→   607→                  <div className={`w-7 h-7 rounded-lg ${meta.bg} flex items-center justify-center`}>
+   608→   608→                    <meta.icon className={`w-3.5 h-3.5 ${meta.color}`} />
+   609→   609→                  </div>
+   610→   610→                  <span className="text-text-muted text-[10px] uppercase tracking-wider font-semibold">
+   611→   611→                    {meta.label}
+   612→   612→                  </span>
+   613→   613→                </div>
+   614→   614→                <p className="text-warm-white text-sm leading-snug">{meta.value}</p>
+   615→   615→              </div>
+   616→   616→            ))}
+   617→   617→          </div>
+   618→   618→        </div>
+   619→   619→
+   620→   620→        {/* CTA buttons */}
+   621→   621→        <div className="px-4 sm:px-6 pt-5 pb-6 mt-2 flex flex-col sm:flex-row gap-3 border-t border-dark-border/40 pt-5">
+   622→   622→          <a href="#contact" onClick={() => onOpenChange(false)} className="flex-1">
+   623→   623→            <Button
+   624→   624→              className={`w-full bg-gradient-to-r ${service.accent} text-dark-deep hover:shadow-lg hover:shadow-brand/25 transition-all duration-500 font-semibold py-5 rounded-xl group`}
+   625→   625→            >
+   626→   626→              Request a Quote
+   627→   627→              <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+   628→   628→            </Button>
+   629→   629→          </a>
+   630→   630→          <a href="tel:0838006989" className="flex-1">
+   631→   631→            <Button
+   632→   632→              variant="outline"
+   633→   633→              className="w-full border-brand/30 text-warm-white hover:bg-brand/10 hover:border-brand/60 hover:text-brand transition-all duration-500 py-5 rounded-xl group"
+   634→   634→            >
+   635→   635→              <Phone className="mr-2 w-4 h-4 group-hover:scale-110 transition-transform" />
+   636→   636→              Call 083 800 6989
+   637→   637→            </Button>
+   638→   638→          </a>
+   639→   639→        </div>
+   640→   640→      </DialogContent>
+   641→   641→    </Dialog>
+   642→   642→  );
+   643→   643→}
+   644→   644→
+   645→   645→function CategoryAccordion({
+   646→   646→  category,
+   647→   647→  services,
+   648→   648→  isOpen,
+   649→   649→  onToggle,
+   650→   650→  onOpenService,
+   651→   651→  animateIndex,
+   652→   652→}: {
+   653→   653→  category: Category;
+   654→   654→  services: Service[];
+   655→   655→  isOpen: boolean;
+   656→   656→  onToggle: () => void;
+   657→   657→  onOpenService: (s: Service) => void;
+   658→   658→  animateIndex: number;
+   659→   659→}) {
+   660→   660→  const cardRef = useRef<HTMLDivElement>(null);
+   661→   661→
+   662→   662→  useEffect(() => {
+   663→   663→    const el = cardRef.current;
+   664→   664→    if (!el) return;
+   665→   665→
+   666→   666→    gsap.fromTo(
+   667→   667→      el,
+   668→   668→      { opacity: 0, y: 40 },
+   669→   669→      {
+   670→   670→        opacity: 1,
+   671→   671→        y: 0,
+   672→   672→        duration: 0.7,
+   673→   673→        delay: animateIndex * 0.12,
+   674→   674→        ease: "power3.out",
+   675→   675→      }
+   676→   676→    );
+   677→   677→  }, [animateIndex]);
+   678→   678→
+   679→   679→  const Icon = category.icon;
+   680→   680→
+   681→   681→  return (
+   682→   682→    <div ref={cardRef} style={{ opacity: 0 }}>
+   683→   683→      <Card
+   684→   684→        role="button"
+   685→   685→        tabIndex={0}
+   686→   686→        aria-expanded={isOpen}
+   687→   687→        aria-label={`${category.name} — ${services.length} ${services.length === 1 ? "service" : "services"}. ${isOpen ? "Click to collapse" : "Click to view services"}.`}
+   688→   688→        onClick={onToggle}
+   689→   689→        onKeyDown={(e) => {
+   690→   690→          if (e.key === "Enter" || e.key === " ") {
+   691→   691→            e.preventDefault();
+   692→   692→            onToggle();
+   693→   693→          }
+   694→   694→        }}
+   695→   695→        className={`bg-dark-card/80 backdrop-blur-sm border-dark-border/50 ${category.accentBorder} transition-all duration-500 overflow-hidden group cursor-pointer focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2 focus-visible:ring-offset-dark-deep hover:-translate-y-0.5 ${isOpen ? "border-brand/30" : ""}`}
+   696→   696→      >
+   697→   697→        {/* Top Accent Bar */}
+   698→   698→        <div
+   699→   699→          aria-hidden="true"
+   700→   700→          className={`h-[3px] bg-gradient-to-r ${category.accent} ${isOpen ? "opacity-80" : "opacity-30"} transition-opacity duration-500`}
+   701→   701→        />
+   702→   702→
+   703→   703→        <CardContent className="p-5 sm:p-6 lg:p-7 relative z-10">
+   704→   704→          <div className="flex items-start sm:items-center gap-4 sm:gap-5">
+   705→   705→            {/* Icon */}
+   706→   706→            <div
+   707→   707→              className={`w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 rounded-2xl ${category.accentBg} flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-all duration-500 relative`}
+   708→   708→            >
+   709→   709→              <Icon className={`w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10 ${category.accentText}`} />
+   710→   710→              <div aria-hidden="true" className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${category.accent} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500`} />
+   711→   711→            </div>
+   712→   712→
+   713→   713→            {/* Text */}
+   714→   714→            <div className="flex-1 min-w-0">
+   715→   715→              <div className="flex items-center gap-2 mb-1 sm:mb-2 flex-wrap">
+   716→   716→                <h3 className="text-warm-white font-bold text-lg sm:text-xl lg:text-2xl tracking-tight">
+   717→   717→                  {category.name}
+   718→   718→                </h3>
+   719→   719→                <span className={`text-[10px] tracking-[0.12em] uppercase font-bold ${category.accentBg} ${category.accentText} px-2.5 py-1 rounded-full`}>
+   720→   720→                  {services.length} {services.length === 1 ? "service" : "services"}
+   721→   721→                </span>
+   722→   722→              </div>
+   723→   723→              <p className="text-text-muted text-xs sm:text-sm leading-relaxed line-clamp-2 sm:line-clamp-none">
+   724→   724→                {category.blurb}
+   725→   725→              </p>
+   726→   726→            </div>
+   727→   727→
+   728→   728→            {/* Chevron */}
+   729→   729→            <div
+   730→   730→              className={`flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full ${category.accentBg} flex items-center justify-center transition-all duration-500 ${isOpen ? "rotate-180" : "rotate-0"}`}
+   731→   731→            >
+   732→   732→              <ChevronDown className={`w-5 h-5 ${category.accentText}`} />
+   733→   733→            </div>
+   734→   734→          </div>
+   735→   735→
+   736→   736→          {/* Hint when closed */}
+   737→   737→          {!isOpen && (
+   738→   738→            <div className={`flex items-center gap-2 text-xs font-medium ${category.accentText} mt-4 sm:mt-5 opacity-70 group-hover:opacity-100 transition-opacity`}>
+   739→   739→              <span className="uppercase tracking-wider">Click to view services</span>
+   740→   740→              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+   741→   741→            </div>
+   742→   742→          )}
+   743→   743→        </CardContent>
+   744→   744→      </Card>
+   745→   745→
+   746→   746→      {/* Expandable services panel — animated with CSS grid trick */}
+   747→   747→      <div
+   748→   748→        className={`grid transition-all duration-500 ease-out ${
+   749→   749→          isOpen ? "grid-rows-[1fr] opacity-100 mt-4 sm:mt-5" : "grid-rows-[0fr] opacity-0"
+   750→   750→        }`}
+   751→   751→      >
+   752→   752→        <div className="overflow-hidden">
+   753→   753→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6 pt-1">
+   754→   754→            {services.map((service, index) => (
+   755→   755→              <ServiceCard
+   756→   756→                key={service.title}
+   757→   757→                service={service}
+   758→   758→                index={index}
+   759→   759→                onOpen={() => onOpenService(service)}
+   760→   760→                animate={isOpen}
+   761→   761→              />
+   762→   762→            ))}
+   763→   763→          </div>
+   764→   764→        </div>
+   765→   765→      </div>
+   766→   766→    </div>
+   767→   767→  );
+   768→   768→}
+   769→   769→
+   770→   770→export default function Services() {
+   771→   771→  const sectionRef = useRef<HTMLDivElement>(null);
+   772→   772→  const headerRef = useRef<HTMLDivElement>(null);
+   773→   773→  const [openCategory, setOpenCategory] = useState<string | null>(null);
+   774→   774→  const [selectedService, setSelectedService] = useState<Service | null>(null);
+   775→   775→  const [modalOpen, setModalOpen] = useState(false);
+   776→   776→
+   777→   777→  const handleOpenService = (service: Service) => {
+   778→   778→    setSelectedService(service);
+   779→   779→    setModalOpen(true);
+   780→   780→  };
+   781→   781→
+   782→   782→  const handleModalOpenChange = (open: boolean) => {
+   783→   783→    setModalOpen(open);
+   784→   784→    if (!open) {
+   785→   785→      setTimeout(() => setSelectedService(null), 200);
+   786→   786→    }
+   787→   787→  };
+   788→   788→
+   789→   789→  useEffect(() => {
+   790→   790→    const el = headerRef.current;
+   791→   791→    if (!el) return;
+   792→   792→
+   793→   793→    gsap.set(el, { opacity: 0, y: 30 });
+   794→   794→
+   795→   795→    const trigger = ScrollTrigger.create({
+   796→   796→      trigger: el,
+   797→   797→      start: "top 85%",
+   798→   798→      once: true,
+   799→   799→      onEnter: () => {
+   800→   800→        gsap.to(el, {
+   801→   801→          opacity: 1,
+   802→   802→          y: 0,
+   803→   803→          duration: 0.8,
+   804→   804→          ease: "power3.out",
+   805→   805→        });
+   806→   806→      },
+   807→   807→    });
+   808→   808→
+   809→   809→    return () => {
+   810→   810→      trigger.kill();
+   811→   811→    };
+   812→   812→  }, []);
+   813→   813→
+   814→   814→  return (
+   815→   815→    <section id="services" className="relative py-12 sm:py-20 md:py-28" ref={sectionRef}>
+   816→   816→      {/* Background */}
+   817→   817→      <div className="absolute inset-0 mesh-gradient" aria-hidden="true" />
+   818→   818→
+   819→   819→      {/* Decorative floating shapes */}
+   820→   820→      <div aria-hidden="true" className="absolute top-20 left-10 w-32 h-32 border border-brand/5 rounded-full animate-float-slow" />
+   821→   821→      <div aria-hidden="true" className="absolute bottom-20 right-10 w-24 h-24 border border-accent/5 rotate-45 animate-float" />
+   822→   822→
+   823→   823→      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+   824→   824→        {/* Section Header */}
+   825→   825→        <div
+   826→   826→          ref={headerRef}
+   827→   827→          className="text-center mb-8 sm:mb-12"
+   828→   828→          style={{ opacity: 0 }}
+   829→   829→        >
+   830→   830→          <span className="text-brand text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3 sm:mb-4 block">
+   831→   831→            What We Do
+   832→   832→          </span>
+   833→   833→          <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-6">
+   834→   834→            <span className="text-warm-white">Our Technology </span>
+   835→   835→            <span className="text-gradient-brand">Services</span>
+   836→   836→          </h2>
+   837→   837→          <p className="text-text-muted text-sm sm:text-lg max-w-2xl mx-auto px-2 sm:px-0">
+   838→   838→            We cover the full stack of technology needs for homes and small
+   839→   839→            businesses across South Africa. Click a category below to view the
+   840→   840→            services under it.
+   841→   841→          </p>
+   842→   842→        </div>
+   843→   843→
+   844→   844→        {/* Category accordions */}
+   845→   845→        <div className="space-y-4 sm:space-y-5 max-w-5xl mx-auto">
+   846→   846→          {categories.map((category, index) => {
+   847→   847→            const categoryServices = services.filter(
+   848→   848→              (s) => s.category === category.name
+   849→   849→            );
+   850→   850→            return (
+   851→   851→              <CategoryAccordion
+   852→   852→                key={category.name}
+   853→   853→                category={category}
+   854→   854→                services={categoryServices}
+   855→   855→                isOpen={openCategory === category.name}
+   856→   856→                onToggle={() =>
+   857→   857→                  setOpenCategory((prev) =>
+   858→   858→                    prev === category.name ? null : category.name
+   859→   859→                  )
+   860→   860→                }
+   861→   861→                onOpenService={handleOpenService}
+   862→   862→                animateIndex={index}
+   863→   863→              />
+   864→   864→            );
+   865→   865→          })}
+   866→   866→        </div>
+   867→   867→
+   868→   868→        {/* Bottom helper CTA */}
+   869→   869→        <div className="mt-10 sm:mt-14 text-center max-w-2xl mx-auto">
+   870→   870→          <p className="text-text-muted text-sm sm:text-base mb-5">
+   871→   871→            Not sure which service you need? Tell us the technology problem
+   872→   872→            you&apos;re trying to solve and we&apos;ll figure out the right
+   873→   873→            approach.
+   874→   874→          </p>
+   875→   875→          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+   876→   876→            <a href="#solutions" className="w-full sm:w-auto">
+   877→   877→              <Button
+   878→   878→                variant="outline"
+   879→   879→                className="w-full border-brand/30 text-brand hover:bg-brand/10 hover:border-brand/60 transition-all duration-500 font-semibold px-8 py-5 rounded-full group"
+   880→   880→              >
+   881→   881→                View Business Solutions
+   882→   882→                <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+   883→   883→              </Button>
+   884→   884→            </a>
+   885→   885→            <a href="#contact" className="w-full sm:w-auto">
+   886→   886→              <Button className="w-full bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-xl hover:shadow-brand/25 transition-all duration-500 font-semibold px-8 py-5 rounded-full group">
+   887→   887→                Request a Quote
+   888→   888→                <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+   889→   889→              </Button>
+   890→   890→            </a>
+   891→   891→          </div>
+   892→   892→        </div>
+   893→   893→      </div>
+   894→   894→
+   895→   895→      <ServiceModal
+   896→   896→        service={selectedService}
+   897→   897→        open={modalOpen}
+   898→   898→        onOpenChange={handleModalOpenChange}
+   899→   899→      />
+   900→   900→    </section>
+   901→   901→  );
+   902→   902→}
+   903→   903→

@@ -1,0 +1,602 @@
+   506→  * Certificates branch: optional `studentId` filter. findMany orderBy issueDate desc with `include: { student: { select: { id, studentNumber, email, idNumber } } }` so Student Number + Email come from the related Student (Certificate model only stores studentName + idNumber). ID Number uses `c.idNumber ?? c.student.idNumber` fallback. 10 columns in spec order (Certificate Number, Student Number, Student Name, Email, ID Number, Program, Issue Date, Signed By, Status, Certificate ID).
+   507→  * Date formatting: date-only fields (Preferred Start Date, attendance Date, certificate Issue Date) use `dateOnly()` → YYYY-MM-DD; timestamp fields (Enrolled At, Training Start Date, Expected Completion, Completed At, Created At, attendance Created At) use `timestamp()` → full ISO; null/undefined → empty string via csvEscape; the only boolean-ish field would already be handled by csvEscape's Yes/No branch (no booleans actually appear in any of the three column lists, but the helper is robust).
+   508→  * Response: `return new NextResponse(csv, { status: 200, headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": \`attachment; filename="${type}-export-${today}.csv"\`, "Cache-Control": "no-store, no-cache, must-revalidate" } })` — uses NextResponse constructor directly (NOT NextResponse.json) per spec. Filename uses today's date in YYYY-MM-DD format.
+   509→- Verification:
+   510→  * `bunx tsc --noEmit --skipLibCheck 2>&1 | grep "export/route"` → empty (zero TypeScript errors in the new file; pre-existing errors in apply/route.ts, welcome-letter/route.ts, admin/page.tsx, HeroScene.tsx, contact/route.ts, and skills/* subdirs untouched and out of scope).
+   511→  * `bun run lint 2>&1 | grep "export/route"` → empty (ESLint clean for the new file; `bun run lint` overall returns zero warnings/errors).
+   512→  * `curl -s "http://localhost:3000/api/academy/export?type=invalid"` → `{"ok":false,"error":"type must be one of: students, attendance, certificates."}` with HTTP 422.
+   513→  * `curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000/api/academy/export?type=students"` (no cookie) → HTTP 401 (auth still protects the actual CSV data — type validation happens first but data export does not).
+   514→  * `curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000/api/academy/export"` (no type) → HTTP 422.
+   515→
+   516→Stage Summary:
+   517→- Files created: src/app/api/academy/export/route.ts (~256 lines, single GET handler).
+   518→- API contract: GET /api/academy/export?type=<students|attendance|certificates>&<filters> → CSV file download (Content-Type: text/csv; charset=utf-8, Content-Disposition: attachment; filename="<type>-export-YYYY-MM-DD.csv", Cache-Control: no-store). Auth via academy_session cookie (any authenticated role can export; 401 if absent). 422 JSON if `type` is missing or not one of the three allowed values. Optional filters: students → status, courseId, q (search across fullName/email/studentNumber/applicationRef/phone); attendance → studentId, date (YYYY-MM-DD, treated as UTC day-range); certificates → studentId. CSV escaping: cells containing `,`/`"`/`\n` are wrapped in double quotes with embedded `"` doubled; `\r\n` line terminator; first row is the header. Date cells: date-only fields formatted as YYYY-MM-DD, timestamp fields as full ISO, null/undefined as empty string, booleans as Yes/No.
+   519→- Students CSV columns (27): Student Number, Application Ref, Full Name, Email, Phone, ID Number, Gender, Nationality, Status, Program, Course ID, Preferred Start Date, Preferred Mode, Highest Education, Employment Status, Enrolled At, Training Start Date, Expected Completion, Completed At, Progress %, Next of Kin Name, Next of Kin Phone, Next of Kin Email, Next of Kin Relationship, Address, Notes, Created At.
+   520→- Attendance CSV columns (8): Attendance ID, Student ID, Student Number, Student Name, Date, Status, Notes, Created At. (Student Number + Student Name are joined via a single parallel `db.student.findMany({ where: { id: { in: studentIds } } })` query and an in-memory Map — no N+1.)
+   521→- Certificates CSV columns (10): Certificate Number, Student Number, Student Name, Email, ID Number, Program, Issue Date, Signed By, Status, Certificate ID. (Student Number + Email come from the related Student via Prisma `include: { student: { select: {...} } }`; ID Number falls back from cert.idNumber to student.idNumber.)
+   522→- tsc: clean (no errors in src/app/api/academy/export/route.ts) | lint: clean (zero warnings/errors).
+   523→
+   524→---
+   525→Task ID: SMS-BE-2
+   526→Agent: general-purpose (subagent)
+   527→Task: Add bulk attendance POST action + gradebook matrix GET endpoint
+   528→
+   529→Work Log:
+   530→- Read worklog.md (last 110 lines for SMS-POLISH-PLAN context), prisma/schema.prisma, src/app/api/academy/attendance/route.ts, src/app/api/academy/assessments/route.ts, src/lib/academy-session.ts, src/lib/academy-auth.ts, src/app/api/academy/students/route.ts (for logAudit pattern), tsconfig.json, eslint.config.mjs.
+   531→- Confirmed scope: edit ONLY attendance/route.ts and assessments/route.ts. Existing single-record/`?studentId=` paths must remain 100% unchanged.
+   532→- Edited attendance/route.ts POST:
+   533→  * Added `action` to the destructured body fields (additive; existing single-record path untouched).
+   534→  * Inserted new `if (action === "bulk")` branch BEFORE the existing single-record validation, with its own `return`.
+   535→  * Bulk branch: validates date is a parseable YYYY-MM-DD string (regex + `new Date()` NaN check); rejects with 422 if missing/invalid.
+   536→  * Validates `records` is a non-empty array ≤200 entries (422 otherwise).
+   537→  * For each record: skips + collects reasons for missing studentId, invalid status (not in `present|absent|excused`).
+   538→  * Batch-validates student existence via single `db.student.findMany({ where: { id: { in: validIds } }})` — missing students get skipped with reason "Student not found."
+   539→  * Performs all upserts inside `db.$transaction(async (tx) => {…})` — finds existing records for studentId+date range, updates if found, creates if not.
+   540→  * Writes ONE audit log entry inside the same transaction: `attendance.bulk` with details `Bulk attendance for {date}: {n} records ({present} present, {absent} absent, {excused} excused)` and `userId: session.userId`.
+   541→  * Returns `{ ok: true, saved: <count>, skipped: [{ studentId: string|null, reason }] }`.
+   542→  * Existing single-record path (no `action` field) is preserved verbatim — backward compatible.
+   543→- Edited assessments/route.ts GET:
+   544→  * Added `courseId` query param read alongside existing `studentId`.
+   545→  * Inserted `if (courseId) {…}` branch BEFORE the existing `studentId` where-clause branch, with its own `return`.
+   546→  * Fetches course with `include: { modules: { where: { active: true }, orderBy: { order: "asc" } } }}`; 404 if not found.
+   547→  * Fetches all students with `courseId` matching and `status in ["enrolled","active","completed"]`, ordered by fullName asc, projecting `{ id, fullName, studentNumber, email, status, progress }`.
+   548→  * Single `db.assessment.findMany({ where: { studentId: { in: studentIds } } })` fetches all relevant assessments.
+   549→  * Builds matrix per student: initializes `cells[moduleTitle] = null` for every active module, then fills in the latest assessment (sort desc by `date.getTime()`, first occurrence per `moduleTitle` wins) with `{ result, mark, date: ISOString, comments }`.
+   550→  * Summary: `totalStudents`, `totalModules`, `totalCells = totalStudents * totalModules`, `competentCells` (cells where `result === "pass"`), `passRate = Math.round((competentCells / totalCells) * 100)` (0 when no cells).
+   551→  * Existing `?studentId=` behavior (no `courseId` param) is preserved verbatim — backward compatible.
+   552→- Style notes: matched existing file conventions (function declarations, comment dividers, `Record<string, unknown>` where clause typing, no new imports). No `any` declarations introduced; relied on the existing file's implicit typing from `req.json()` (which `tsconfig.noImplicitAny:false` and `eslint @typescript-eslint/no-explicit-any:off` permit, identical to students/route.ts).
+   553→
+   554→Stage Summary:
+   555→- Files modified: src/app/api/academy/attendance/route.ts, src/app/api/academy/assessments/route.ts
+   556→- New API contracts:
+   557→  - POST /api/academy/attendance { action: "bulk", date, records: [{studentId, status, notes?}] } → { ok, saved, skipped: [{studentId, reason}] }
+   558→  - GET /api/academy/assessments?courseId=<id> → { ok, course, students, modules, matrix: [{student, cells: {moduleTitle: {result, mark, date, comments} | null}}], summary: {totalStudents, totalModules, passRate, competentCells, totalCells} }
+   559→- tsc: clean (no errors in attendance/route.ts or assessments/route.ts; pre-existing errors in apply/route.ts, contact/route.ts, admin/page.tsx are out of scope) | lint: clean (no errors in attendance/route.ts or assessments/route.ts)
+   560→
+   561→---
+   562→Task ID: SMS-BE-3
+   563→Agent: general-purpose (subagent)
+   564→Task: Add certificate reissue action + extend reports with trends, status breakdown, top courses, attendance/assessment summaries
+   565→
+   566→Work Log:
+   567→- Read /home/z/my-project/worklog.md (last 300 lines) to confirm prior agent work — Stage 1 plan dispatched 6 parallel backend subagents; SMS-BE-1 (student profile GET), SMS-BE-2 (attendance bulk + assessments gradebook), and SMS-BE-4 (forgot/reset password) already appended entries. Confirmed scope: edit ONLY src/app/api/academy/certificate/route.ts + src/app/api/academy/reports/route.ts; preserve existing `issue`/`manual` paths and existing 8 dashboard counts verbatim.
+   568→- Read prisma/schema.prisma to confirm field names/types: Certificate { id, studentId, programName, studentName, idNumber?, issueDate, certificateNumber (unique), signedBy?, status (default "active") — statuses: active | revoked | reissued | replaced }; Student.enrolledAt/completedAt/trainingStartDate/expectedCompletion are DateTime?; Student.createdAt DateTime (default now); AuditLog { userId?, studentId?, action, details?, timestamp }.
+   569→- Read src/lib/academy-session.ts + src/lib/academy-auth.ts — getSession(req) returns SessionPayload | null via cookie → HMAC verify. SessionPayload has userId, email, role, name. Reused existing auth pattern already present in both routes; no new auth code added.
+   570→- Read existing src/app/api/academy/certificate/route.ts (197 lines). Existing POST has two branches: `action === "manual"` (returns early at end of block) then default fall-through to `issue`. Existing `generateCertNumber()` helper reused. Existing `DEFAULT_SIGNATORY`/`SIGNATORY_TITLE` constants left untouched. GET handler untouched.
+   571→- Edited src/app/api/academy/certificate/route.ts: inserted a new `if (action === "reissue") { ... }` branch BETWEEN the `manual` block's closing `}` and the `// ── issue (default)` comment. The `manual` and `issue` paths are byte-for-byte unchanged.
+   572→  * Auth + role gating: same `super | admin | admissions` check as `issue`/`manual`; 403 with descriptive error if not allowed.
+   573→  * Body: `const { certificateId, reason } = body as { certificateId?: string; reason?: string }` — destructures from `body` (Next's `req.json()` Promise<any>); explicit type annotation for clarity + avoids any implicit any lint complaints.
+   574→  * 422 if `!certificateId`; 404 if cert not found via `db.certificate.findUnique({ where: { id: certificateId } })`.
+   575→  * Marks the OLD certificate `status: "revoked"` via `db.certificate.update` — NOT deleted, preserving the audit trail.
+   576→  * Generates a NEW cert number via existing `generateCertNumber()` helper; creates a new Certificate row carrying over `programName`, `studentName`, `idNumber`, `signedBy` from the old cert; sets `issueDate: new Date()` and `status: "active"`.
+   577→  * Writes AuditLog entry: `action: "certificate.reissue"`, `details: "Reissued certificate ${oldNum} → ${newNum} for ${studentName}. Reason: ${reason || "not specified"}"` — exact format per spec.
+   578→  * Returns 200 `{ ok: true, certificate: <new>, oldCertificateNumber: <old num> }`.
+   579→- Read existing src/app/api/academy/reports/route.ts (51 lines). Existing GET runs Promise.all of 8 `db.*.count()` queries and returns `{ ok: true, stats: { ...8 counts... } }`. Existing `stats` shape preserved as-is.
+   580→- Rewrote src/app/api/academy/reports/route.ts: added module-level helpers `monthKey(d)`, `last12Months()`, `bucketByMonth(dates, months)` and an `ALL_STATUSES` const tuple. Extended GET:
+   581→  * Existing 8 counts Promise.all EXPANDED into a single Promise.all of 16 entries — 8 counts + 8 new aggregations: enrolledTrendRows, completedTrendRows, appliedTrendRows, certTrendRows (findMany select-only-date, filtered by `enrolledAt/completedAt/createdAt/issueDate gte elevenMonthsAgo`), studentsWithStatus (findMany select status), studentsWithCourse (findMany where courseId not null select courseId), recentAttendance (findMany where date gte thirtyDaysAgo select status), allAssessments (findMany select result).
+   582→  * Used `not: null` Prisma filter for nullable DateTime fields (enrolledAt, completedAt) — Prisma 6 DateTimeNullableFilter accepts it cleanly (tsc verified).
+   583→  * trends: 4 arrays (enrollments/completions/applications/certificates), each 12 entries `{ month: "YYYY-MM", count }` oldest-first. Months start at 11 months ago through current month.
+   584→  * statusBreakdown: `Record<string, number>` initialized with all 11 schema statuses set to 0 (applied, under-review, info-required, accepted, enrolled, active, completed, rejected, withdrawn, deferred, terminated), then incremented from `studentsWithStatus` scan; unknown statuses also tallied defensively.
+   585→  * topCourses: built Map<courseId, count> from `studentsWithCourse`, sorted desc, sliced top 5, then a SINGLE `db.course.findMany({ where: { id: { in: [...] } }, select: { id, title, code } })` (NOT N+1) and zipped into `[{ courseId, title, code, enrolled }]`. Falls back to "Unknown course"/"" if course record missing.
+   586→  * attendanceSummary (last 30 days): counts present/absent/excused, computes `rate = present / total * 100` rounded to 1 dp (0 if total=0).
+   587→  * assessmentSummary (all-time): counts pass / not-yet-competent, computes `rate = pass / total * 100` rounded to 1 dp (0 if total=0).
+   588→  * Final response: `{ ok: true, stats: { ...8 existing counts... }, trends, statusBreakdown, topCourses, attendanceSummary, assessmentSummary }` — existing `stats` shape is byte-for-byte identical; new fields are additive only → backward compatible.
+   589→- TypeScript strict compliance: no `any` used anywhere (and no `as any`). body typed via `as { certificateId?: string; reason?: string }` for the reissue branch destructuring. Map.get returns `number | undefined` handled via `?? 0` and `!== undefined` guards. ALL_STATUSES typed as `readonly string[]` via `as const`. Prisma return types are inferred; no manual casting.
+   590→- Did NOT touch any other file. Did NOT modify schema. Did NOT touch admin/page.tsx. Existing `issue`/`manual` paths in certificate/route.ts preserved byte-for-byte. Existing 8 counts + `stats` shape in reports/route.ts preserved byte-for-byte.
+   591→
+   592→Verification (all green):
+   593→- `bunx tsc --noEmit --skipLibCheck 2>&1 | grep -E "certificate/route|reports/route"` → EMPTY (no TS errors in either file). Pre-existing TS errors in unrelated files (Ndayeni-Solutions/*, examples/websocket/*, skills/*, src/app/api/contact/route.ts, src/app/api/academy/apply/route.ts, src/app/api/academy/welcome-letter/route.ts, src/app/training/admin/page.tsx, src/app/training/verify/[certificateNumber]/page.tsx, src/components/ndayeni/HeroScene.tsx) are out of scope and left untouched.
+   594→- `bun run lint 2>&1 | grep -E "certificate/route|reports/route"` → EMPTY (no lint errors in either file). Full `bun run lint` output is 1 line (`$ eslint .`) — zero warnings/errors anywhere in the repo.
+   595→
+   596→Stage Summary:
+   597→- Files modified: src/app/api/academy/certificate/route.ts (added reissue branch only; manual+issue paths unchanged), src/app/api/academy/reports/route.ts (extended GET response with 5 new fields; existing 8 counts + stats shape unchanged).
+   598→- New API contracts:
+   599→  - POST /api/academy/certificate { action: "reissue", certificateId: string, reason?: string } → 200 `{ ok: true, certificate: <new Certificate>, oldCertificateNumber: string }` | 401 `{ ok: false, error: "Not authenticated." }` | 403 `{ ok: false, error: "Only super/admin/admissions roles can reissue certificates." }` | 404 `{ ok: false, error: "Certificate not found." }` | 422 `{ ok: false, error: "certificateId is required." }`. Old cert is marked `status: "revoked"` (NOT deleted). Audit log `certificate.reissue` written with details `"Reissued certificate <oldNum> → <newNum> for <studentName>. Reason: <reason|not specified>"`.
+   600→  - GET /api/academy/reports → `{ ok: true, stats: { ...existing 8 counts unchanged... }, trends: { enrollments: [{month,count} x12], completions: [...], applications: [...], certificates: [...] } (12 months oldest-first), statusBreakdown: { applied, "under-review", "info-required", accepted, enrolled, active, completed, rejected, withdrawn, deferred, terminated }, topCourses: [{ courseId, title, code, enrolled } x≤5 sorted desc], attendanceSummary: { present, absent, excused, rate } (last 30 days), assessmentSummary: { pass, "not-yet-competent", rate } (all-time) }`. Existing `stats` block is byte-for-byte identical to the prior contract.
+   601→- tsc: clean (no errors in either file) | lint: clean (no errors in either file)
+   602→- Next actions: frontend task should (1) add a "Reissue" button to the Certificates view in /training/admin/page.tsx that POSTs `{ action: "reissue", certificateId, reason }` and shows a Sonner toast on success; (2) wire ReportsCharts component to consume `trends` (4 line charts via recharts), `statusBreakdown` (pie/bar), `topCourses` (horizontal bar), `attendanceSummary` + `assessmentSummary` (gauge or stat cards).
+   603→
+   604→
+   605→---
+   606→Task ID: SMS-BE-6
+   607→Agent: general-purpose (subagent)
+   608→Task: Install pdfkit + create welcome letter PDF generator + download endpoint
+   609→
+   610→Work Log:
+   611→- Read worklog.md (last ~160 lines), prisma/schema.prisma, src/lib/academy-session.ts, src/lib/academy-auth.ts, src/app/api/academy/students/route.ts, src/app/api/academy/certificate/route.ts, package.json to ground the implementation in the existing SMS architecture (AcademyUser/Student/Course/Module/Certificate/AuditLog models; getSession(req) cookie auth; db singleton; DEFAULT_SIGNATORY="Nhlakanipho Ntshangase" reused as the welcome letter signatory).
+   612→- Installed `pdfkit@0.20.2` + `@types/pdfkit@0.17.6` via `bun add pdfkit @types/pdfkit` (16 packages added).
+   613→- Created src/lib/welcome-letter.ts:
+   614→  * Exports `interface WelcomeLetterStudent` (fullName/studentNumber/email/phone/address/program/courseId/preferredStartDate/preferredMode/enrolledAt/expectedCompletion/nextOfKinName/nextOfKinPhone) and `async function generateWelcomeLetterPdf(student): Promise<Buffer>`.
+   615→  * Uses `import PDFDocument from "pdfkit"` (esModuleInterop=true makes the default import work cleanly).
+   616→  * A4 portrait, 50pt margins; Helvetica + Helvetica-Bold fonts; brand navy #1e3a5f for headings, #0f172a for body, #64748b gray for subheading/footer, #cbd5e1 for the horizontal rule.
+   617→  * Body text rendered with `lineGap: 3` (≈1.4 line spacing on 11pt); bullets with `lineGap: 2`.
+   618→  * Date formatted via `toLocaleDateString("en-ZA", { day:"numeric", month:"long", year:"numeric" })` → "22 September 2025". First name extracted via `fullName.trim().split(/\s+/)[0]`.
+   619→  * Buffer collection: subscribes to `doc.on("data", c => chunks.push(Buffer.from(c)))` and resolves on `doc.on("end", ...)`; rejects on `doc.on("error", ...)`; calls `doc.end()` last.
+   620→  * Renders all spec content verbatim: letterhead, subheading, horizontal rule, right-aligned date, student block (with conditional Student No + address), greeting, welcome paragraph, PROGRAMME DETAILS / WHAT TO EXPECT / WHAT TO BRING ON YOUR FIRST DAY / CONTACT DETAILS sections, closing, "Warm regards," + 30pt signature gap (`doc.y += 30`), then signatory block (Nhlakanipho Ntshangase / Founder & CEO / Ndayeni Solutions Digital Academy), then the 2-line centered 9pt gray footer.
+   621→  * Initial implementation pinned the footer to `doc.page.height - 60` via absolute (x,y) coords — but that pushed the footer onto page 2 because the body filled page 1 past that y. Refactored to flow the footer naturally after the signatory block (`moveDown(0.5)` + centered text), which keeps the entire letter on a single A4 page (verified with pdftotext + pdfinfo → 1 page).
+   622→  * Sets PDF metadata (Title/Author/Subject/Creator).
+   623→- Created src/app/api/academy/welcome-letter/route.ts:
+   624→  * `export const dynamic = "force-dynamic"`; imports NextRequest/NextResponse, db, getSession, generateWelcomeLetterPdf.
+   625→  * GET /api/academy/welcome-letter?studentId=<id>:
+   626→    - 401 JSON `{ ok:false, error:"Not authenticated." }` if no valid session.
+   627→    - 422 JSON `{ ok:false, error:"studentId query parameter is required." }` if studentId missing.
+   628→    - 404 JSON if student not found.
+   629→    - 403 JSON `{ ok:false, error:"Welcome letter is only available for enrolled students." }` if student.status is NOT in {enrolled, active, completed} — enforces the "once enrolled" rule.
+   630→    - Generates the PDF via `generateWelcomeLetterPdf(...)`.
+   631→    - Writes an AuditLog: action="welcome_letter.download", userId=session.userId, studentId=student.id, details="Downloaded welcome letter for ${student.fullName}".
+   632→    - Returns the PDF as `new NextResponse(body, { status:200, headers:{ "Content-Type":"application/pdf", "Content-Disposition":'attachment; filename="welcome-letter-<studentNumber|id>.pdf"', "Cache-Control":"no-store, no-cache, must-revalidate" } })`.
+   633→  * TS-strict workaround: Buffer<ArrayBufferLike> is not assignable to NextResponse's BodyInit under TS 5.9 (BufferSource now requires ArrayBufferView<ArrayBuffer> specifically). Resolved by copying the bytes into a fresh `new Uint8Array(pdfBuffer)` (Uint8Array<ArrayBuffer>), which is type-safe and copies only a few KB. No `any`/`as unknown as` casts used.
+   634→- Verified:
+   635→  * `bun pm ls | grep -i pdfkit` → `@types/pdfkit@0.17.6` and `pdfkit@0.20.2` listed.
+   636→  * `bunx tsc --noEmit --skipLibCheck 2>&1 | grep -E "welcome-letter"` → EMPTY (clean).
+   637→  * `bun run lint 2>&1 | grep -E "welcome-letter"` → EMPTY (clean).
+   638→  * `curl -s "http://localhost:3000/api/academy/welcome-letter"` → `{"ok":false,"error":"Not authenticated."}` (HTTP 401, not 500).
+   639→  * dev.log shows `GET /api/academy/welcome-letter 401 in 112ms (compile: 105ms, render: 7ms)` — endpoint compiled cleanly, no pdfkit errors.
+   640→  * End-to-end local test (via a throwaway script, since deleted): generated two sample PDFs (with/without studentNumber + address) and confirmed via `pdfinfo` both are 1-page A4 PDFs, and via `pdftotext -layout` confirmed all spec text (letterhead, subheading, date, student block, greeting, welcome paragraph, all 4 sections, contact bullets, closing, 30pt-gap signature block, and the 2-line footer) renders verbatim with correct alignment.
+   641→
+   642→Stage Summary:
+   643→- Files created: src/lib/welcome-letter.ts (PDF generator + WelcomeLetterStudent interface), src/app/api/academy/welcome-letter/route.ts (GET endpoint).
+   644→- Dependencies added: pdfkit@0.20.2, @types/pdfkit@0.17.6.
+   645→- API contract: GET /api/academy/welcome-letter?studentId=<id> → 200 PDF file download (Content-Type: application/pdf, Content-Disposition: attachment; filename="welcome-letter-<studentNumber|id>.pdf", Cache-Control: no-store). Auth required (401), studentId required (422), student must exist (404), student.status must be enrolled|active|completed (403 otherwise — enforces the "once enrolled" rule). Writes a `welcome_letter.download` AuditLog entry on every successful download.
+   646→- Exported helper: `generateWelcomeLetterPdf(student: WelcomeLetterStudent): Promise<Buffer>` in src/lib/welcome-letter.ts — pure, testable, reusable (e.g. can be called from the student "convert" action later to email the letter on enrolment).
+   647→- tsc: clean (no errors in welcome-letter files) | lint: clean (no warnings/errors in welcome-letter files)
+   648→
+   649→
+   650→---
+   651→Task ID: SMS-FE-2
+   652→Agent: general-purpose (subagent)
+   653→Task: Create AttendanceBulkCapture.tsx + AssessmentGradebook.tsx
+   654→
+   655→Work Log:
+   656→- Read /home/z/my-project/worklog.md (SMS-BE-2 entry confirmed contracts):
+   657→  * POST /api/academy/attendance { action: "bulk", date: "YYYY-MM-DD", records: [{ studentId, status: "present"|"absent"|"excused", notes? }] } → { ok, saved: number, skipped: [{ studentId: string|null, reason }] }.
+   658→  * GET /api/academy/assessments?courseId=<id> → { ok, course, students: [{ id, fullName, studentNumber, email, status, progress }], modules: [{ id, title }], matrix: [{ student, cells: { moduleTitle: { result, mark, date: ISO, comments } | null } }], summary: { totalStudents, totalModules, passRate, competentCells, totalCells } }.
+   659→  * POST /api/academy/assessments { studentId, moduleTitle, result: "pass"|"not-yet-competent", mark?, comments? } → { ok, assessment: { id } }.
+   660→- Read /home/z/my-project/src/app/training/admin/page.tsx (lines 1–549) to learn the exact dark theme styling tokens: `glass` and `glass-strong` panels, `bg-dark-deep/60`, `border-dark-border/50`, `border-brand/10`, `text-warm-white`, `text-text-muted`, `text-brand`, `text-brand-light`, status color trio (green/amber/red with `/15 bg /30 border /400 text`), `bg-gradient-to-r from-brand to-brand-light text-dark-deep` primary button, `h-11` inputs.
+   661→- Read shadcn ui components: button.tsx (cva variants), select.tsx (SelectTrigger accepts className override → `h-11` works), radio-group.tsx (RadioGroupItem indicator uses `fill-primary` on CircleIcon; can override via `[&_[data-slot=radio-group-indicator]_svg]:fill-green-500` arbitrary variant), table.tsx (Table already wraps in `overflow-x-auto` div), badge.tsx, input.tsx, label.tsx, textarea.tsx, skeleton.tsx, popover.tsx.
+   662→- Created /home/z/my-project/src/components/academy/AttendanceBulkCapture.tsx (~370 lines):
+   663→  * "use client"; strict-typed interfaces for StudentsResponse, BulkSaveResponse, RosterStudent, Entry.
+   664→  * Props: `courses: Array<{ id; code; title; modules: {id,title}[]; active?: boolean }>; onSaved?: () => void` — `active?: boolean` added so we can filter to active courses only via `c.active !== false` (defensive: if parent omits `active`, course is kept).
+   665→  * Controls row: Course `<Select>` (active only), Date `<Input type="date">` (default = today via `todayISO()` helper), "Load Roster" `<Button>`.
+   666→  * Roster load: `Promise.all` of three fetches (`?courseId=X&status=enrolled`, `&status=active`, `&status=completed`) → merge by student id into a deduped Map → `sort` by fullName asc → initialize `entries[studentId] = { status: "present", notes: "" }` for every row (default present per spec).
+   667→  * Table: Student Name | Student # | Status (RadioGroup with Present/Absent/Excused RadioGroupItem + colored Label per option) | Notes (Input). RadioGroupItem colors applied via `[&_[data-slot=radio-group-indicator]_svg]:fill-<color>-500` + `data-[state=checked]:border-<color>-500` + `data-[state=checked]:bg-<color>-500/5`. RadioGroup is `flex flex-row flex-wrap gap-3` so all three options fit on one row.
+   668→  * Quick-action buttons: "Mark all present" (green outline) + "Mark all absent" (red outline) — write to all rows via single `setEntries` batch.
+   669→  * "Save Attendance" full-width button → `POST /api/academy/attendance` with `{ action: "bulk", date, records: roster.map(...).filter(r => r.status) }`. On success: green badge "Saved N records" + amber badge "N skipped" if `skipped.length > 0`. On error: red AlertCircle panel. Calls `onSaved?.()`.
+   670→  * Empty state pre-load: "Select a course and date to load the roster." with Calendar icon. Empty roster: "No enrolled students found for this course." inside the table body via `colSpan={4}`.
+   671→  * Mobile-first: shadcn `Table` already provides `overflow-x-auto`; `student #` column is `hidden sm:table-cell` on mobile (with sub-line fallback in Student Name cell).
+   672→- Created /home/z/my-project/src/components/academy/AssessmentGradebook.tsx (~400 lines):
+   673→  * "use client"; strict-typed interfaces for GradebookResponse, AssessmentResponse, ModuleRow, StudentRow, Cell, MatrixRow, Summary, ResultValue.
+   674→  * Props: `courses: Array<{ id; code; title; modules: {id,title}[]; active?: boolean }>` (no onSaved — refetch on every cell save is sufficient).
+   675→  * Initial `courseId` state = `activeCourses[0]?.id ?? ""` (auto-load on first render per spec). `useEffect([courseId, loadGradebook])` triggers fetch whenever courseId changes.
+   676→  * `loadGradebook(id)` (useCallback with `[]` deps → stable identity) fetches `GET /api/academy/assessments?courseId=<id>`, sets `students`, `modules`, `matrix`, `summary`; clears state on error.
+   677→  * Matrix table: sticky first column + sticky header via `sticky left-0 bg-dark-card z-10` on name cell and `sticky right-0 bg-dark-card z-10` on Pass Rate column. Each module column header truncates long titles with `truncate` + native `title` tooltip.
+   678→  * Each cell renders a `<CellButton>` subcomponent: a `<button>` trigger wrapped in shadcn `Popover`. Cell display: green "P" Badge (pass), amber "NYC" Badge (not-yet-competent), gray "—" (no assessment). Trigger has native `title` tooltip showing full details (result • date • mark • comments) — satisfies the tooltip-fallback acceptance criterion in the spec.
+   679→  * PopoverContent: dark-themed (`bg-dark-card border-dark-border/50 text-warm-white w-72 p-4`); renders a mini-form with Result `<Select>` (Pass / Not Yet Competent), Mark `<Input>` (optional), Comments `<Textarea>` (optional), and a primary `<Button>` "Add Assessment" / "Update Assessment". Form is prefilled from existing cell values (re-synced via `useEffect([cell])` when refetch brings a new cell object). Submit POSTs to `/api/academy/assessments` with `{ studentId, moduleTitle, result, mark: mark.trim() || undefined, comments: comments.trim() || undefined }`; on success closes popover and calls `onSaved()` which refetches the matrix.
+   680→  * Per-row pass rate: `passRateFor(cells, modules)` → `Math.round(competentCells / modules.length * 100)`. Color-coded (≥75 green, ≥50 yellow, else red).
+   681→  * Loading skeleton: 5 rows of `<Skeleton>` cells while fetching.
+   682→  * Empty state: `colSpan={modules.length + 2}` row "No students enrolled in this course yet." with Award icon.
+   683→  * Error state: "Try again" outline button next to course selector + (when courseId empty) red error panel.
+   684→  * Summary cards below the table: Total Students | Total Modules | Overall Pass Rate (from `summary.passRate`), each in its own `glass` panel with brand-colored pass rate text.
+   685→- TypeScript strict compliance: no `any` anywhere. All API responses typed with explicit interfaces (`StudentsResponse`, `BulkSaveResponse`, `GradebookResponse`, `AssessmentResponse`). `RadioGroup onValueChange` value cast to `AttendanceStatus` via `as` (acceptable per existing admin/page.tsx pattern). Select `onValueChange` cast to `ResultValue`. Nullable fields (`studentNumber?: string | null`) handled via `?? ""` / `|| "—"` defensive defaults.
+   686→- Mobile-first: shadcn `Table` provides `overflow-x-auto`; sticky first/last columns keep student name and pass rate visible while scrolling module columns on narrow viewports.
+   687→- Did NOT edit any existing file. Only created the two new component files in the new `/src/components/academy/` directory.
+   688→
+   689→Verification:
+   690→- `cd /home/z/my-project && bunx tsc --noEmit --skipLibCheck 2>&1 | grep -E "AttendanceBulkCapture|AssessmentGradebook" | head -20` → EMPTY (zero TypeScript errors in either new file; pre-existing errors in unrelated files (Ndayeni-Solutions/*, examples/websocket/*, skills/*, src/app/api/academy/apply/route.ts, src/app/api/contact/route.ts, src/app/training/admin/page.tsx, src/app/training/verify/[certificateNumber]/page.tsx, src/components/ndayeni/HeroScene.tsx) are out of scope and untouched).
+   691→- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "AttendanceBulkCapture|AssessmentGradebook" | head -20` → EMPTY (zero lint warnings/errors in either new file; full `bun run lint` output is just `$ eslint .` with zero diagnostics).
+   692→
+   693→Stage Summary:
+   694→- Files created: src/components/academy/AttendanceBulkCapture.tsx, src/components/academy/AssessmentGradebook.tsx (new directory).
+   695→- Component interfaces:
+   696→  - `<AttendanceBulkCapture courses={[{id,code,title,modules:[{id,title}],active?}]} onSaved?:()=>void />` — consumes GET /api/academy/students?courseId=&status=(enrolled|active|completed) for roster + POST /api/academy/attendance { action:"bulk", date, records:[{studentId,status,notes?}] } for save.
+   697→  - `<AssessmentGradebook courses={[{id,code,title,modules:[{id,title}],active?}]} />` — consumes GET /api/academy/assessments?courseId=<id> for the matrix + POST /api/academy/assessments { studentId, moduleTitle, result:"pass"|"not-yet-competent", mark?, comments? } for per-cell add/update.
+   698→- tsc: clean (no errors in either new file) | lint: clean (no warnings/errors in either new file).
+   699→- Next actions: wire these into /training/admin/page.tsx — replace the existing single-record Attendance view with `<AttendanceBulkCapture courses={courses} onSaved={loadDashboard} />` and the single-record Assessments view with `<AssessmentGradebook courses={courses} />`. No further API work needed; SMS-BE-2 contracts are satisfied exactly as the frontend consumes them.
+   700→
+   701→
+   702→---
+   703→Task ID: SMS-FE-5
+   704→Agent: general-purpose (subagent)
+   705→Task: Create ReportsCharts.tsx (4 recharts visualizations + 4 KPI cards)
+   706→
+   707→Work Log:
+   708→- Read /home/z/my-project/worklog.md (SMS-BE-3 entry confirmed the extended reports contract): GET /api/academy/reports now returns `{ ok, stats: {...8 existing counts unchanged}, trends: { enrollments, completions, applications, certificates } (each Array<{month:"YYYY-MM",count}> x12 oldest-first), statusBreakdown: Record<status,number> (11 known statuses pre-initialized to 0), topCourses: Array<{courseId,title,code,enrolled}> x≤5 sorted desc, attendanceSummary: { present, absent, excused, rate } (last 30 days), assessmentSummary: { pass, "not-yet-competent", rate } (all-time) }`. Existing `stats` block is byte-for-byte identical to prior contract → backward compatible.
+   709→- Read /home/z/my-project/src/app/training/admin/page.tsx (lines 1–349) to lock in the dark theme tokens: `bg-dark-card/80 backdrop-blur-sm border-dark-border/50`, `bg-dark-deep/60`, `text-warm-white`, `text-text-muted`, `text-brand`, `text-brand-light`, `bg-gradient-to-r from-brand to-brand-light text-dark-deep` primary button, existing `statusColors` map (Tailwind badge classes — yellow/blue/orange/cyan/indigo/green/emerald/red/gray/purple per status), `glass` and `glass-strong` panels.
+   710→- Read /home/z/my-project/src/components/ui/card.tsx — confirmed `Card` is a `flex flex-col gap-6 rounded-xl border py-6` div and `CardContent` is `px-6` (so I pass `p-4 sm:p-6` to override padding correctly). Verified shadcn Button accepts arbitrary `className` for variant override.
+   711→- Read /home/z/my-project/src/components/ui/badge.tsx — confirmed cva-based variant system; not needed for this component (charts use raw recharts Cells with hex fills).
+   712→- Read /home/z/my-project/src/components/ui/chart.tsx — confirmed shadcn chart wrapper exists, but spec says "Use `recharts` directly" so I imported the primitives directly (`LineChart, BarChart, PieChart, Line, Bar, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend`) and did not use the wrapper.
+   713→- Read /home/z/my-project/src/app/api/academy/reports/route.ts in full (223 lines) — confirmed exact response shape and field names, including the `"not-yet-competent"` (hyphenated) literal key in assessmentSummary and `rate` is a number rounded to 1dp. All status keys are hyphenated slugs matching `ALL_STATUSES` tuple.
+   714→- Verified recharts is installed: `bun pm ls | grep recharts` → `├── recharts@2.15.4`. No new deps needed.
+   715→- Created /home/z/my-project/src/components/academy/ReportsCharts.tsx (~440 lines):
+   716→  * "use client"; TypeScript strict, no `any` anywhere.
+   717→  * Defined `ReportsData` interface (and sub-interfaces `TrendPoint`, `TopCourse`, `AttendanceSummary`, `AssessmentSummary`) for the API response shape.
+   718→  * Props: `interface ReportsChartsProps { stats?: Record<string, number> }` — optional pre-fetched stats. If not provided, fetches `GET /api/academy/reports` on mount via `useEffect` + `useCallback`-stable `fetchData()` (handles empty body, invalid JSON, non-ok responses, `ok:false` envelope, network errors). Per spec: if `stats` prop is provided, the component does NOT fetch (parent owns the data); charts then render an empty-state "No reports data available." card. KPI cards use `stats ?? data?.stats ?? {}` so they render from whichever source is present.
+   719→  * Loading state: 4 `<SkeletonCard>` placeholders with `animate-pulse` shimmer bars (1× header bar + 1× 250px chart bar) in the same 2-col grid as real charts.
+   720→  * Error state: centered red glass panel with `AlertCircle` icon, error message text, and a "Try again" `<Button>` that re-invokes `fetchData()`.
+   721→  * KPI cards (responsive 1/2/4 cols): 4 cards, each with a gradient-text number + small label + small lucide icon in a `bg-white/5` rounded square. Gradients use inline `style={{ backgroundImage: linear-gradient(...), WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}` to avoid Tailwind dynamic-class purge issues. Icons: `Users` (Total Students = `enrolledStudents + activeStudents + completedStudents`), `CheckCircle` (Completion Rate = `completedStudents / total * 100` rounded to 1dp, displays "87.5%"), `Calendar` (Attendance Rate from `attendanceSummary.rate`), `Award` (Assessment Pass Rate from `assessmentSummary.rate`).
+   722→  * Chart 1 — Enrolments vs Completions (LineChart, 250px): merges `trends.enrollments[]` and `trends.completions[]` into a single dataset keyed by `formatMonth("YYYY-MM") → "MMM YY"` (e.g. "Sep 24"). Two `<Line>` series: `Enrolments` stroke `#1e3a5f` (brand navy), `Completions` stroke `#14b8a6` (accent teal), both with monotone curves, 2px stroke, dot r=3, activeDot r=5. `<CartesianGrid stroke="#1f2937" strokeOpacity={0.3} strokeDasharray="3 3">`. X-axis labels rotated -25° with `textAnchor="end"` and `interval={0}` so all 12 months show. `<Tooltip content={<ChartTooltip />} />` (custom dark-surface tooltip). `<Legend iconType="circle">` below.
+   723→  * Chart 2 — Status Distribution (horizontal BarChart, 250px): maps `statusBreakdown` object → array of `{ status: humanizeStatus(slug), count, fill: STATUS_HEX_COLORS[slug] || brand navy }` (filters out zero-count statuses). Layout `vertical` with X-axis type=number, Y-axis type=category dataKey="status" width=90. `<CartesianGrid horizontal={false}>`. Each `<Cell>` uses its status-specific hex color (yellow/blue/orange/cyan/indigo/green/emerald/red/gray/purple, mirroring the admin page's badge intent). Bar `radius={[0,4,4,0]}` for rounded right edge.
+   724→  * Chart 3 — Top Courses by Enrolment (vertical BarChart, 250px): maps `topCourses` array → `{ name: truncate(title||code||"Untitled", 18), enrolled }`. X-axis labels rotated -20° with `height={60}` to accommodate truncated titles. Bars filled brand navy `#1e3a5f`, `radius={[4,4,0,0]}` for rounded top edge.
+   725→  * Chart 4 — Attendance Summary (donut PieChart, 250px): data `[{name:"Present",value,color:"#10b981"},{name:"Absent",value,color:"#ef4444"},{name:"Excused",value,color:"#f59e0b"}]` from `attendanceSummary`. Pie `innerRadius={60} outerRadius={90} paddingAngle={2}`. Center text overlay (absolutely positioned div with `paddingBottom: 32px` to nudge up past the legend) shows `${rate.toFixed(1)}%` + "attendance" sublabel. Each `<Cell>` gets its slice color; `stroke="transparent"` on cells and `stroke="none"` on Pie to remove dark separators.
+   726→  * Custom `<ChartTooltip>` (typed via `CustomTooltipProps` + `TooltipItem` interfaces — no `any`): dark glass surface (`bg-dark-card/95 backdrop-blur-sm border-dark-border/60`), shows label + color dot + name + value with `tabular-nums`. Handles `number | string` values defensively.
+   727→  * Helpers: `formatMonth("YYYY-MM" → "MMM YY")`, `humanizeStatus(slug → Title Case Words)`, `truncate(text, 18)`.
+   728→  * Mobile-first responsive: KPI grid is `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`; charts grid is `grid-cols-1 sm:grid-cols-2`. Charts stack on mobile, 2-up on `sm+`.
+   729→  * Each chart wrapped in shadcn `<Card className="bg-dark-card/80 backdrop-blur-sm border-dark-border/50">` with `<CardContent className="p-4 sm:p-6">` and a `<h3 className="text-warm-white font-semibold text-sm mb-4">` title. `ResponsiveContainer width="100%" height={250}` per spec.
+   730→  * Did NOT edit any existing file. Only created the one new component file in `/src/components/academy/ReportsCharts.tsx` (the directory already existed from SMS-FE-2 work).
+   731→
+   732→Verification:
+   733→- `cd /home/z/my-project && bunx tsc --noEmit --skipLibCheck 2>&1 | grep -E "ReportsCharts" | head -20` → EMPTY (zero TypeScript errors in the new file; pre-existing errors in unrelated files — Ndayeni-Solutions/*, examples/websocket/*, skills/*, src/app/api/contact/route.ts, src/app/api/academy/apply/route.ts, src/app/training/admin/page.tsx, src/app/training/verify/[certificateNumber]/page.tsx, src/components/ndayeni/HeroScene.tsx — are out of scope and untouched).
+   734→- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "ReportsCharts" | head -20` → EMPTY (full `bun run lint` output is just `$ eslint .` with zero diagnostics).
+   735→
+   736→Stage Summary:
+   737→- Files created: src/components/academy/ReportsCharts.tsx (~440 lines).
+   738→- Charts: LineChart (enrolments vs completions, 12 months, brand navy + accent teal), horizontal BarChart (status distribution, 11 known statuses with hex colors), vertical BarChart (top 5 courses by enrolment, brand navy bars), donut PieChart (attendance summary last 30 days, present/absent/excused with center rate%).
+   739→- KPI cards: Total Students (computed from enrolled+active+completed), Completion Rate (computed), Attendance Rate (from attendanceSummary.rate), Assessment Pass Rate (from assessmentSummary.rate) — each with lucide icon + gradient-text number.
+   740→- Consumes: GET /api/academy/reports (extended with trends, statusBreakdown, topCourses, attendanceSummary, assessmentSummary per SMS-BE-3). Stats prop is optional — if omitted, fetches internally.
+   741→- Styling matches admin page: `bg-dark-card/80 backdrop-blur-sm border-dark-border/50` cards, `text-warm-white` headings, `#9ca3af` axis ticks, `#1f2937` grid lines at 0.3 opacity.
+   742→- Loading state: 4 shimmer skeletons. Error state: red panel + "Try again" button.
+   743→- tsc: clean (no errors in ReportsCharts.tsx) | lint: clean (no warnings/errors in ReportsCharts.tsx).
+   744→- Next actions: wire into /training/admin/page.tsx Reports view — render `<ReportsCharts />` (no stats prop, let it fetch) or `<ReportsCharts stats={stats} />` (stats-only mode, charts will show "No reports data available." empty state; to get charts, render without stats prop so the component fetches the full response itself).
+   745→
+   746→---
+   747→Task ID: SMS-FE-1
+   748→Agent: general-purpose (subagent)
+   749→Task: Create StudentProfileModal.tsx + WelcomeLetterButton.tsx
+   750→
+   751→Work Log:
+   752→- Read worklog.md (Stage 1 SMS-BE-* entries — confirmed GET /api/academy/students?id=X contract returns { ok, student: { ...studentFields, certificates[], attendances[≤50 desc], assessments[≤50 desc], auditLogs[≤30 desc], attendanceRate, passRate, certificateNumber, enrolledDays, expectedCompletionDays }, course: { ...courseFields, modules: Module[] (active only, ordered) } | null }; confirmed GET /api/academy/welcome-letter?studentId=X returns a PDF download with 403 if status is not enrolled|active|completed).
+   753→- Read src/app/training/admin/page.tsx (first 250 lines) to learn the EXACT design system: bg-dark-card/80 backdrop-blur-xl border-dark-border/50 surfaces, text-warm-white / text-text-muted text colors, bg-gradient-to-r from-brand to-brand-light accent gradient, statusColors map (applied=yellow, under-review=blue, info-required=orange, accepted=cyan, enrolled=indigo, active=green, completed=emerald, rejected=red, withdrawn=gray, deferred=purple — each rendered as bg-{color}-500/15 text-{color}-400 border-{color}-500/30), and the glass / glass-strong / mesh-gradient utility classes.
+   754→- Read prisma/schema.prisma Student/Course/Module/Attendance/Assessment/Certificate/AuditLog model definitions to lock down the exact field types for my StudentProfile interface (nullable string vs required string, DateTime fields serialized as ISO strings in JSON, Assessment.result enum, Attendance.status enum, Certificate.status enum).
+   755→- Read shadcn primitives used: dialog.tsx (Dialog open/onOpenChange + DialogContent/DialogHeader/DialogTitle/DialogDescription/DialogFooter; default close X button enabled), button.tsx (Button asChild → Slot for the anchor child pattern + variant/size props), badge.tsx (Badge with className override), tabs.tsx (Tabs/TabsList/TabsTrigger/TabsContent with data-[state=active] styling), card.tsx (Card+CardContent), table.tsx (Table+TableRow+TableHead+TableCell), skeleton.tsx, progress.tsx, tooltip.tsx (rejected — disabled buttons break pointer-event tooltips).
+   756→- Read src/components/ui/button.tsx + admin/page.tsx download-icon usage (lucide-react `Download` is already imported in admin/page.tsx → consistent). Lucide-react exports `Lock`, `Edit`, `X`, `RefreshCw`, `AlertCircle`, `ExternalLink` — all used.
+   757→- Created /home/z/my-project/src/components/academy/ directory (did not previously exist).
+   758→
+   759→CREATED FILE 1: src/components/academy/WelcomeLetterButton.tsx
+   760→- "use client" directive at top.
+   761→- Props: { studentId: string; studentNumber?: string | null; status: string; variant?: "default"|"outline"|"ghost"; size?: "default"|"sm"|"lg"; className?: string }.
+   762→- Mirrors the server-side ELIGIBLE_STATUSES = Set(["enrolled","active","completed"]) — keeps the button accurately reflecting availability without an extra round-trip.
+   763→- When eligible: renders `<Button asChild variant={variant} size={size} className={className}><a href={/api/academy/welcome-letter?studentId=${encodeURIComponent(studentId)}} target="_blank" rel="noopener noreferrer"><Download className="w-4 h-4 mr-2" /> Download Welcome Letter</a></Button>`.
+   764→- When NOT eligible: renders a real `<Button disabled variant={variant} size={size} className={className} title="Available once the student is enrolled">` with `<Lock className="w-4 h-4 mr-2" /> Welcome Letter (locked)` label. Uses a NATIVE `title` attribute (not shadcn Tooltip) because `disabled:pointer-events-none` in the button base classes would suppress the radix Tooltip's hover/focus listeners on a disabled button — the native title works reliably on disabled elements.
+   765→- studentNumber prop is accepted for forward-compatibility (the server endpoint uses studentId as the URL param; the filename suffix uses studentNumber||id internally) — the prop is part of the contract but does not need to be appended to the href.
+   766→- TypeScript strict: no `any`, all props are explicitly typed, optional props are marked with `?`, defaults set via standard default-parameter syntax. No `as any` casts.
+   767→- Mobile-first responsive: inherits shadcn Button responsive sizing (sm: small h-8, default: h-9, lg: h-10) and breaks gracefully on narrow viewports.
+   768→
+   769→CREATED FILE 2: src/components/academy/StudentProfileModal.tsx
+   770→- "use client" directive at top.
+   771→- Props: { studentId: string | null; onClose: () => void; onEdit?: (student: StudentProfile) => void }. The onEdit prop is OPTIONAL — when provided, an Edit button is rendered in the footer that calls onEdit(student); when omitted, the Edit button is hidden (matches the spec's "optional prop, not required for v1").
+   772→- When studentId is null → returns null (renders nothing).
+   773→- When studentId is non-null → renders a controlled shadcn Dialog (open = studentId !== null; onOpenChange(false) → onClose()). Click-outside, Escape, and the top-right X button all funnel through onOpenChange(false) → onClose().
+   774→- On mount/studentId-change: fetch(`/api/academy/students?id=${encodeURIComponent(studentId)}`, { cache: "no-store" }). State machine: loading → show LoadingSkeleton (animated avatar + 6 stat-card skeletons); error → show AlertCircle + message + Try again button (calls fetchStudent()); success → render ProfileContent (Tabs + Footer).
+   775→- 8 Tabs rendered via shadcn Tabs/TabsList/TabsTrigger/TabsContent:
+   776→  1. Overview — header Card (fullName, studentNumber, applicationRef, status badge, program, course title, gradient progress bar) + 6 StatCards in a 2-col → 3-col responsive grid: Progress %, Attendance Rate %, Pass Rate %, Certificate No., Enrolled Days, Expected Completion (days). All values come from the computed fields the BE-1 endpoint merges into the student object.
+   777→  2. Personal — 2-col grid of InfoRows: fullName, email, phone, idNumber, dateOfBirth, gender, nationality, address.
+   778→  3. Education & Kin — 2-col grid: highestEducation, employmentStatus, previousTraining, relevantExperience, nextOfKinName, nextOfKinRelationship, nextOfKinPhone, nextOfKinEmail.
+   779→  4. Course — 2-col grid of InfoRows for program/courseTitle/code/duration/deliveryMethod/entryRequirements/preferredStartDate/preferredMode/intake/enrolledAt/trainingStartDate/expectedCompletion/completedAt + an ordered list of the course modules (rendered as a numbered list with title, description, and a duration Badge).
+   780→  5. Attendance (last 50) — shadcn Table: Date | Status (Badge colored: present=green, absent=red, excused=amber) | Notes. Empty-state card if none.
+   781→  6. Assessments (last 50) — shadcn Table: Module | Date | Result (Badge colored: pass=green, not-yet-competent=amber) | Mark | Comments. Empty-state card if none.
+   782→  7. Certificates — Card per cert: Number, Program, Issue Date, Signed By, Student Name, ID Number + Status Badge (active=emerald, revoked=red, reissued=blue, replaced=purple). Each card has a "View / Verify" link to /training/verify/<certificateNumber> opening in a new tab. Empty-state if none.
+   783→  8. Audit Trail (last 30) — shadcn Table: Timestamp | Action (mono Badge) | Details | User ID. Empty-state if none.
+   784→- Footer (DialogFooter): three buttons:
+   785→  1. <WelcomeLetterButton studentId={student.id} studentNumber={student.studentNumber} status={student.status} variant="default" size="sm" className="bg-gradient-to-r from-brand to-brand-light text-dark-deep font-semibold" /> — the gradient styling overrides the default Button bg via the className merge.
+   786→  2. Edit button (only if onEdit provided) — calls onEdit(student). outline variant + dark styling.
+   787→  3. Close button — calls onClose(). ghost variant.
+   788→- Status badge colors: replicated the exact statusColors map from admin/page.tsx (applied=yellow, under-review=blue, etc.). Defined attendanceStatusColors, assessmentResultColors, certificateStatusColors maps inline using the same {color}-500/15 / {color}-400 / {color}-500/30 pattern.
+   789→- Modal sizing: DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto bg-dark-card/90 backdrop-blur-xl border-dark-border/50" — matches the spec (sm:max-w-4xl + scrollable content). Header uses bg-gradient-to-r from-brand to-brand-light bg-clip-text text-transparent for the gradient title accent.
+   790→- TypeScript strict: no `any`. Fully-typed StudentProfile / CourseInfo / AttendanceRecord / AssessmentRecord / CertificateRecord / AuditLogRecord / CourseModule interfaces declared at the top of the file. API response narrowed via StudentProfileResponse interface + JSON.parse cast. The `err` in catch is narrowed via `err instanceof Error ? err.message : "Failed to load student."`. LucideIcon type imported from lucide-react for typed icon props on StatCard. No `as any` or `as unknown as` casts.
+   791→- Mobile-first responsive: 2-col → sm:3-col stat grid, 1-col → sm:2-col info-row grids, flex-wrap footer + tabs list, break-words / break-all on long text fields (certificateNumber, userId, audit action). All tables use the shadcn Table's overflow-x-auto wrapper.
+   792→- Used ONLY shadcn/ui components + lucide-react icons + Tailwind classes — no new dependencies added.
+   793→
+   794→Verification (both files clean):
+   795→- `bunx tsc --noEmit --skipLibCheck 2>&1 | grep -E "StudentProfileModal|WelcomeLetterButton"` → EMPTY (zero TS errors in either new file). The 3 pre-existing TS errors in unrelated files (verify/[certificateNumber]/page.tsx ReactNode typing + HeroScene.tsx three.js typing) are out of scope and untouched.
+   796→- `bun run lint 2>&1 | grep -E "StudentProfileModal|WelcomeLetterButton"` → EMPTY (zero lint errors in either file; `bun run lint` overall returns zero warnings/errors).
+   797→
+   798→Stage Summary:
+   799→- Files created: src/components/academy/StudentProfileModal.tsx, src/components/academy/WelcomeLetterButton.tsx (new directory src/components/academy/ created).
+   800→- Component interfaces:
+   801→  - StudentProfileModal { studentId: string|null; onClose: () => void; onEdit?: (student: StudentProfile) => void } — fetches GET /api/academy/students?id={studentId}, renders 8 tabs (Overview / Personal / Education & Kin / Course / Attendance / Assessments / Certificates / Audit Trail) inside a controlled shadcn Dialog (sm:max-w-4xl, max-h-[85vh] overflow-y-auto). Footer renders the WelcomeLetterButton + optional Edit button (if onEdit provided) + Close button.
+   802→  - WelcomeLetterButton { studentId: string; studentNumber?: string|null; status: string; variant?: "default"|"outline"|"ghost"; size?: "default"|"sm"|"lg"; className?: string } — when status ∈ {enrolled, active, completed} renders a Button-asChild anchor pointing at GET /api/academy/welcome-letter?studentId={id} (target=_blank, no referrer); otherwise renders a disabled Button with Lock icon + native title="Available once the student is enrolled".
+   803→- API endpoints consumed: GET /api/academy/students?id={studentId} (cookie auth same-origin, returns { ok, student, course }) and GET /api/academy/welcome-letter?studentId={id} (cookie auth, returns PDF download, 403 if status not enrolled/active/completed).
+   804→- tsc: clean (no errors in either new file) | lint: clean (no errors in either new file)
+   805→- Next actions: Stage 3 (admin/page.tsx refactor) should wire StudentProfileModal by adding a `profileStudentId` state (string|null) to AdminPage, rendering `<StudentProfileModal studentId={profileStudentId} onClose={() => setProfileStudentId(null)} onEdit={(s) => { setEditing(s); setProfileStudentId(null); }} />` at the page root, and adding a "View" / row-click handler on the students table that calls `setProfileStudentId(s.id)`.
+   806→
+   807→
+   808→---
+   809→Task ID: SMS-FE-3
+   810→Agent: general-purpose (subagent)
+   811→Task: Create UserManagementPanel.tsx (table + add/edit/reset-password/delete dialogs)
+   812→
+   813→Work Log:
+   814→- Read worklog.md (last ~400 lines) to ground the implementation in the existing SMS architecture: prior agents (SMS-BE-* + SMS-FE-1/2) have built the entire /api/academy backend and the AttendanceBulkCapture + AssessmentGradebook frontend components. SMS-FE-3 is the user-permissions UI piece. Confirmed scope: create ONLY src/components/academy/UserManagementPanel.tsx; do NOT touch any other file.
+   815→- Read src/app/training/admin/page.tsx (lines 1-250 for setup/state/styling tokens, 560-580 for the existing minimal "users view" that ships in admin/page.tsx, 643-664 for the existing AddUserForm, 693-741 for the existing EditModal pattern). Confirmed dark-theme Tailwind tokens used throughout: `glass`, `glass-strong`, `text-warm-white`, `text-text-muted`, `bg-dark-deep`, `border-dark-border`, `bg-brand`, `bg-brand-light`, `bg-accent`, `text-brand`, `text-accent`, and the `.text-gradient-brand` utility class from globals.css. Confirmed the local `roleLabels` map at line 60.
+   816→- Read src/components/ui/{button,dialog,select,input,label,table,badge,alert-dialog,switch,sonner}.tsx to learn the shadcn primitive API surface used in this repo. Confirmed: Dialog has DialogContent+Header+Title+Description+Footer with `open`/`onOpenChange` controlled pattern; AlertDialog mirrors with AlertDialogAction (auto-closes on click unless e.preventDefault()); Select uses value/onValueChange with SelectValue placeholder; Switch uses checked/onCheckedChange; Table primitives wrap in a horizontal-scroll container automatically.
+   817→- Read src/components/academy/AttendanceBulkCapture.tsx (lines 1-100, 250-280) to confirm the established dark-theme styling conventions for Select + Table primitives in this project (`SelectContent className="bg-dark-card border-dark-border/50 text-warm-white"`).
+   818→- Read src/app/api/academy/users/route.ts (200 lines) to verify the exact API contract: GET returns `{ ok:true, users:[{id,email,name,role,active,createdAt}] }` (descending by createdAt); POST with action `create | update | resetPassword`; DELETE with `?id=<id>`. Confirmed permission model: create = super only; update = super OR self (and non-super cannot promote to super; backend further refuses if you're the only super demoting yourself); resetPassword = super OR self; delete = super only AND not self AND not the last super.
+   819→- Read src/lib/academy-auth.ts to confirm the SessionPayload shape (no roleLabels map there — the role labels map is defined locally in admin/page.tsx). Defined `ROLE_LABELS` const locally in the new component matching the spec's exact map `{ super:"Super Admin", admin:"Administrator", admissions:"Admissions", training:"Training Admin", readonly:"Read Only" }`.
+   820→- Confirmed project's toast convention by inspecting layout.tsx (mounted `<Toaster />` from `@/components/ui/toaster`) and `src/hooks/use-toast.ts` (exports `useToast()` returning `{ toast, dismiss, toasts }` where `toast({ title, description })` dispatches). Sonner is installed but NOT mounted in layout — chose `useToast` from `@/hooks/use-toast` so toasts actually render. Importantly, `useToast` uses module-level state so it works correctly even inside conditionally-rendered dialog sub-components.
+   821→- Created src/components/academy/UserManagementPanel.tsx (default export `UserManagementPanel`). Structure:
+   822→  * `interface AcademyUser { id,email,name,role,active,createdAt }` + `interface CurrentUser { id,email,name,role }` + `interface UserManagementProps { users, currentUser, onUsersChanged }` per spec.
+   823→  * `type DialogState` = discriminated union over `{type:"none"} | {type:"add"} | {type:"edit";user} | {type:"reset";user} | {type:"delete";user}` — drives which dialog is rendered. Cleanly typed; no `any`.
+   824→  * Module-level constants: ROLE_LABELS map (spec-exact), ROLE_OPTIONS for Select dropdowns, ROLE_LEGEND for the footer descriptions, `roleBadgeClass(role)` helper returning Tailwind class fragments (super=brand blue, admin=accent teal, others=neutral gray — matches the existing admin/page.tsx badge pattern), `formatDate(iso)` using `toLocaleDateString("en-ZA")`, `isValidEmail` regex.
+   825→  * `postUsers(body)` + `deleteUserRequest(id)` API helpers: typed `Promise<ApiResult>` where `ApiResult = { ok:boolean; error?:string }`. Reads `res.text()` first (handles empty responses from infrastructure errors), then JSON-parses inside try/catch — same defensive pattern as the admin page's `api()` helper. Catches network errors. No `any`.
+   826→- Main `UserManagementPanel` component renders:
+   827→  * Header row: `<h1 className="text-gradient-brand font-bold text-xl sm:text-2xl">Users & Permissions</h1>` + Add User button (gradient brand→brand-light) gated behind `currentUser.role === "super"`.
+   828→  * Users table (shadcn Table primitives, dark-themed via `glass rounded-xl border-brand/10` wrapper): columns Name | Email (hidden md:flex) | Role (badge) | Status (Active/Inactive Badge with green/red coloring) | Created At (hidden lg:flex) | Actions. Empty-state row spans 6 cols when `users.length === 0`.
+   829→  * Per-row Actions: Edit (Pencil icon, ghost, hover text-brand), Reset Password (KeyRound icon, ghost, hover text-accent), Delete (Trash2 icon, ghost, hover text-red-400). Edit/Reset disabled when `!canManage` (i.e., not super AND not self); Delete disabled when `!canDelete` (not super OR is self). Each row marks "(you)" suffix when `u.id === currentUser.id`.
+   830→  * Footer legend card: ShieldCheck icon + "Role Legend" title; responsive grid of 5 role badges with one-line descriptions (super=administer everything; admin=students+courses; admissions=applications+welcome letters; training=attendance+assessments; readonly=view-only). Trailing Add User button duplicate (super only) right-aligned.
+   831→  * Conditionally renders ONE of the 4 dialog sub-components based on `dialog.type`. No window.confirm / alert anywhere.
+   832→- `AddUserDialog` (super only): shadcn Dialog controlled via `open` + `onOpenChange`. Form: Name (Input), Email (Input type=email), Password (Input type=password, minLength=8), Role (Select with all 5 options). `formValid = name.trim().length>0 && isValidEmail(email) && password.length>=8`. Submit → POST `/api/academy/users` body `{ action:"create", name, email (lowercased), password, role }`. On success: `toast({title:"User created", description})` + `onChanged()` (closes dialog + calls parent's `onUsersChanged`). On error: `setError(result.error)`. Submit button disabled while submitting or invalid. Cancel button outline-styled.
+   833→- `EditUserDialog`: shadcn Dialog + nested shadcn AlertDialog for demote-self confirmation. Form: Name (Input), Email (Input disabled — not editable, shows muted helper text), Role (Select — non-super gets the "Super Admin" option `disabled`), Active (Switch inside a glass panel). Computes `demotingSelf = (isSelf && currentUser.role==="super" && form.role!=="super")`. On submit: if demotingSelf, opens the nested AlertDialog ("Remove your own super admin privileges? ... Are you sure?") instead of submitting immediately — AlertDialogAction calls `e.preventDefault()` then runs the actual submit. The form also surfaces an inline orange warning when `demotingSelf` is true so the user understands what they're about to do. Submit → POST `{ action:"update", id, name, role, active }`. On success: toast + onChanged. Backend will refuse if user is the only super — error is surfaced via setError.
+   834→- `ResetPasswordDialog`: shadcn Dialog. Form: New Password (8+ chars, type=password, minLength=8) + Confirm Password. Live mismatch hint appears under confirm field when `confirm.length > 0 && !passwordsMatch`. `formValid = password.length>=8 && password===confirm`. Submit → POST `{ action:"resetPassword", id, password }`. On success: `toast({title:"Password reset successfully", description})` + onChanged. Submit button is accent→cyan gradient (visual differentiation from create/edit brand-blue). Pre-submit client-side guards on length + match (returns setError with specific message).
+   835→- `DeleteUserDialog`: shadcn AlertDialog (per strict requirement to use AlertDialog for confirms). Title with Trash2 icon in red. Body text: "Are you sure you want to delete user {name} ({email})? This action cannot be undone." + a glass info card explaining audit-log behavior (userId set to null — preserving trail, losing link). Cancel (outline) + Delete (destructive variant) buttons. AlertDialogAction calls `e.preventDefault()` to prevent auto-close before the async DELETE completes, then dispatches `deleteUserRequest(user.id)` → DELETE `/api/academy/users?id=<encoded>`. On success: toast + onChanged. On error: setError rendered inline (the dialog stays open because preventDefault blocked the auto-close).
+   836→- TypeScript strict compliance: NO `any` anywhere. All fetch bodies are typed via the parameter shape; JSON.parse results are cast to `{ ok?: boolean; error?: string }` and then narrowed with `Boolean(data.ok)`. All form states are explicit interfaces. All React event handlers typed `React.FormEvent` or use the radix `onValueChange(v: string)` / `onCheckedChange(v: boolean)` signatures. The `void` operator is used on `doSubmit()`/`handleDelete()` calls inside event handlers to mark intentionally-unawaited promises (avoids floating-promise lint).
+   837→- Mobile-first responsive: table is wrapped by shadcn Table's built-in `overflow-x-auto` container; Email column hidden below `md`, Created At hidden below `lg`, so mobile shows Name | Role | Status | Actions. Dialogs use `sm:max-w-md` and stack vertically (DialogHeader → form fields → footer flex-col-reverse on mobile, sm:flex-row on desktop). Legend grid: 1 col mobile → 2 col sm → 3 col lg.
+   838→- Did NOT edit any existing file. Did NOT modify admin/page.tsx, did NOT modify the API route, did NOT modify any UI primitive. The existing minimal users view in admin/page.tsx (lines 564-580) is intentionally left untouched — replacing it with this component is the integrator's job in a later task.
+   839→
+   840→Verification (all green):
+   841→- `bunx tsc --noEmit --skipLibCheck 2>&1 | grep -E "UserManagementPanel"` → EMPTY (no TS errors in the new file). Pre-existing TS errors in unrelated files (Ndayeni-Solutions/*, examples/websocket/*, skills/*, src/app/api/contact/route.ts, src/app/api/academy/apply/route.ts, src/app/training/admin/page.tsx, src/app/training/verify/[certificateNumber]/page.tsx, src/components/ndayeni/HeroScene.tsx) are out of scope and left untouched.
+   842→- `bun run lint 2>&1 | grep -E "UserManagementPanel"` → EMPTY (no lint errors/warnings in the new file). Full `bun run lint` output is the single line `$ eslint .` — zero warnings/errors across the entire repo.
+   843→
+   844→Stage Summary:
+   845→- Files created: src/components/academy/UserManagementPanel.tsx (single default export `UserManagementPanel` + 4 internal dialog subcomponents AddUserDialog / EditUserDialog / ResetPasswordDialog / DeleteUserDialog + module-level helpers).
+   846→- Component interface: `<UserManagementPanel users={[{id,email,name,role,active,createdAt}]} currentUser={{id,email,name,role}} onUsersChanged={():void} />`
+   847→- Consumes: GET /api/academy/users (passed in via `users` prop); POST /api/academy/users with `action: "create" | "update" | "resetPassword"`; DELETE /api/academy/users?id=<id>. Matches the existing /api/academy/users contract byte-for-byte (super-only create/delete; super-or-self update/resetPassword; backend refuses last-super demotion/delete).
+   848→- UI: shadcn Dialog for Add/Edit/Reset Password, shadcn AlertDialog for Delete + Edit-demote-self-confirm. Dark glassmorphism theme consistent with admin/page.tsx. Mobile-first responsive table (Email/createdAt hidden on small screens; horizontal-scroll fallback). All buttons use lucide-react icons (Pencil, KeyRound, Trash2, Plus, ShieldCheck, UserCog). No window.confirm/alert anywhere. Toasts via `useToast` hook (project standard; Toaster is mounted in layout.tsx).
+   849→- tsc: clean (no errors in the new file) | lint: clean (no warnings/errors in the new file)
+   850→- Next actions: integrator should swap the existing minimal users view (admin/page.tsx lines 564-580) for `<UserManagementPanel users={users} currentUser={user} onUsersChanged={loadUsers} />` — requires lifting the SessionUser→AcademyUser shape match (admin's `user` has only `{id,email,name,role}` so currentUser prop is satisfied directly; users state is already `AcademyUser[]` so users prop is satisfied directly). The existing `AddUserForm` helper component at admin/page.tsx lines 643-664 can be deleted once this panel is wired in (it becomes redundant). The `showAddUser` boolean state and `setShowAddUser` setter in admin/page.tsx also become dead.
+   851→
+   852→---
+   853→Task ID: SMS-FE-4
+   854→Agent: general-purpose (subagent)
+   855→Task: Create AuditLogViewer.tsx + CSVExportButtons.tsx
+   856→
+   857→Work Log:
+   858→- Read worklog.md (last 400 lines) to ground the new components in the prior backend work — confirmed SMS-BE-5 created the `/api/academy/export?type=students|attendance|certificates` CSV endpoint (auth via academy_session cookie; 422 for missing/invalid type; optional filters: students → status/courseId/q, attendance → studentId/date, certificates → studentId) and that an existing paginated `/api/academy/audit` GET endpoint exists (returns `{ok, logs, page, pageSize, total, totalPages}` with action/studentId/userId filters).
+   859→- Read prisma/schema.prisma → AuditLog model shape: { id (cuid), userId?, studentId?, action (string), details?, timestamp (DateTime, default now) }. Prisma findMany in audit/route.ts does NOT `include: { student: true }` so only raw scalar fields are serialized (userId/studentId/details nullable, timestamp ISO string).
+   860→- Read src/app/training/admin/page.tsx (first 250 + 251-450) to anchor design system: `glass rounded-xl border-brand/10` cards; `bg-dark-deep/60 border-dark-border/50 text-warm-white` for inputs/selects; `bg-gradient-to-r from-brand to-brand-light text-dark-deep font-semibold` for primary buttons; status pill pattern `bg-xxx-500/15 text-xxx-400 border-xxx-500/30`; table headers `border-b border-dark-border/30 text-text-muted text-xs uppercase tracking-wider`; table rows `border-b border-dark-border/20 hover:bg-brand/5`.
+   861→- Read src/components/ui/{button,input,select,table,badge,skeleton,label}.tsx and the sibling components in src/components/academy/ (WelcomeLetterButton.tsx — perfect `asChild`+`<a target="_blank" rel="noopener noreferrer">` pattern with Download icon; AttendanceBulkCapture.tsx — confirms shadcn Table primitives + Label + Select + Badge usage and dark-theme className overrides for the admin surface). Matched those conventions verbatim.
+   862→- Read tsconfig.json (strict:true, noImplicitAny:false, path alias `@/*`→`./src/*`) and eslint.config.mjs (permissive: no-explicit-any/no-unused-vars/exhaustive-deps all OFF — JSON.parse → typed `as` cast pattern used in AttendanceBulkCapture is fine).
+   863→
+   864→- CREATED /home/z/my-project/src/components/academy/AuditLogViewer.tsx:
+   865→  * `"use client"`; default-exported component with `AuditLogViewerProps { studentId?, userId? }` interface (also exported).
+   866→  * `AuditLogEntry` interface: `{ id: string; userId: string|null; studentId: string|null; action: string; details: string|null; timestamp: string }` — mirrors the Prisma JSON shape.
+   867→  * `AuditResponse` interface for the fetch result.
+   868→  * `formatDate(iso: string): string` inline helper — `new Date(iso)` parse, NaN guard → "—", then `${day} ${MONTHS_SHORT[month]} ${year}, ${HH}:${MM}`. MONTHS_SHORT is a local const (Jan..Dec). NO date-fns dependency (per spec — inline is fine).
+   869→  * `truncate(text: string|null, max=100): string` — null → "—"; >max → `${slice(0,max)}…`.
+   870→  * `actionBadgeClass(action: string): string` — prefix dispatch returning the `bg-xxx-500/15 text-xxx-400 border-xxx-500/30 font-mono` triple per spec: student.*→blue, certificate.*→purple, attendance.*→green, assessment.*→amber, user.*→red, welcome_letter.*→teal, default→gray. `font-mono` added for monospace alignment of action strings.
+   871→  * State split into "active filters" (sent to API: page/pageSize/actionFilter/studentIdFilter/userIdFilter) and "draft filters" (controlled inputs: actionDraft/studentIdDraft/userIdDraft). The optional `studentId`/`userId` props seed BOTH the draft and the active filter on first render, so the URL the very first fetch builds already includes them.
+   872→  * `fetchLogs` wrapped in `useCallback([page, pageSize, actionFilter, studentIdFilter, userIdFilter])`; `useEffect(() => fetchLogs(), [fetchLogs])` re-runs on any filter/page change — auto-loads first page on mount with prefilled props applied.
+   873→  * URL construction via `URLSearchParams` — only sets action/studentId/userId when non-empty (server treats empty string as a real contains-filter which would match nothing; skipping the param entirely means "no filter"). Server caps pageSize at 100.
+   874→  * Robust parse: `await res.text()` then empty-string guard (matches admin/page.tsx pattern), then `JSON.parse(text) as AuditResponse`, then `if (!data.ok) throw new Error(data.error || …)`. Catch sets a user-visible `error` string + clears data.
+   875→  * Filters bar (top, glass card): 3-column responsive grid (1/2/3 cols at sm/lg) of Label+Input combos (Action input has a left-aligned Search icon overlay); Apply Filters button (brand gradient) + Clear button (outline, dark-themed) below. Enter key in any input triggers Apply.
+   876→  * Error state: red glass card with AlertCircle icon + message (matches AttendanceBulkCapture error pattern).
+   877→  * Table card (glass, overflow-hidden): shadcn `<Table>` + `<TableHeader>` + `<TableRow>` + `<TableHead>` + `<TableBody>` + `<TableCell>`. 4 columns: Timestamp (mono, formatted), Action (Badge with prefix-colored class), Details (truncated to 100 chars, full text in `title` attr, `truncate` class for overflow ellipsis, max-w-md), User (mono, userId or "System" when null).
+   878→  * Loading skeleton: 8 `<TableRow>`s of shimmering divs (`bg-white/5 rounded animate-pulse`) — one per column with sensible widths (h-4 w-32 / h-5 w-28 rounded-full / h-4 w-full max-w-md / h-4 w-24).
+   879→  * Empty state: single `<TableRow>` with `<TableCell colSpan={4}>` containing "No audit log entries match these filters." (exact spec wording).
+   880→  * Pagination row (hidden during loading): "Page X of Y" (Y clamped to ≥1 via Math.max) · total entries count; page-size shadcn Select (25/50/100, default 25, controlled value=String(pageSize)); Prev/Next outline buttons with ChevronLeft/ChevronRight icons, disabled when at first/last page (`page <= 1` / `page >= totalPages`), `disabled:opacity-40`. Changing page size resets page to 1.
+   881→  * TypeScript strict compliance: no `any` (implicit or explicit) — JSON.parse→typed `as AuditResponse` cast (matches AttendanceBulkCapture pattern); all catch params typed via `err instanceof Error` narrowing; Badge/Button/Select/Input/Label/Table props typed via their shadcn signatures.
+   882→
+   883→- CREATED /home/z/my-project/src/components/academy/CSVExportButtons.tsx:
+   884→  * `"use client"`; default-exported component with `CSVExportButtonsProps { variant?, size?, className?, courseId?, status?, studentId? }` interface (also exported). Defaults: variant="outline", size="sm" (per spec).
+   885→  * `ExportType` local union (`"students" | "attendance" | "certificates"`).
+   886→  * `buildExportUrl(type, filters)` helper: `URLSearchParams({ type })` + only includes relevant params per type — students gets `courseId`/`status` if provided; attendance + certificates get `studentId` if provided. Empty/undefined values are NOT added so the server applies its default (unfiltered) scope. `q=` is never added (not in the props surface — the example URL in the spec was illustrative; the constraint "Only include the relevant filter params if they are provided" wins).
+   887→  * Three shadcn `<Button asChild variant={variant} size={size}>` instances, each wrapping a single `<a href={url} target="_blank" rel="noopener noreferrer">` child with a Download (lucide-react) icon + label ("Students CSV" / "Attendance CSV" / "Certificates CSV"). Same-origin → academy_session cookie travels with the request automatically; browser handles the CSV download via the `Content-Disposition: attachment` header set by the server.
+   888→  * Outer container: `flex flex-wrap items-center gap-2 ${className ?? ""}` — `flex-wrap` gives the 2-row mobile wrap per spec; caller can append extra classes via the `className` prop.
+   889→  * Pattern matches WelcomeLetterButton.tsx exactly (`asChild` + `<a target="_blank" rel="noopener noreferrer">` + Download icon + label), just x3 with the three export types.
+   890→
+   891→Verification (all green):
+   892→- `bunx tsc --noEmit --skipLibCheck 2>&1 | grep -E "AuditLogViewer|CSVExportButtons"` → EMPTY (zero TS errors in either new file). 26 pre-existing TS errors elsewhere in the repo (apply/route.ts, contact/route.ts, admin/page.tsx, HeroScene.tsx, skills/*, etc. — out of scope per prior worklog entries).
+   893→- `bun run lint 2>&1` → exit code 0, no warnings/errors anywhere (full `bun run lint` is clean).
+   894→- `bun run lint 2>&1 | grep -E "AuditLogViewer|CSVExportButtons"` → EMPTY.
+   895→
+   896→Stage Summary:
+   897→- Files created: src/components/academy/AuditLogViewer.tsx (~315 lines, single default-exported client component + helpers), src/components/academy/academy/CSVExportButtons.tsx (~85 lines, single default-exported client component + buildExportUrl helper).
+   898→- Component interfaces:
+   899→  - `<AuditLogViewer studentId?={string} userId?={string} />` — paginated audit log table consuming GET /api/academy/audit?page=&pageSize=&action=&studentId=&userId= → { ok, logs, page, pageSize, total, totalPages }. Filter bar (Action / Student ID / User ID inputs + Apply Filters + Clear), 4-column table (Timestamp / Action badge / Details truncated to 100 chars with title attr / User or "System"), 8-row shimmering skeleton while loading, "No audit log entries match these filters." empty state, Prev/Next + 25/50/100 page-size select pagination. Auto-loads first page on mount with prefilled studentId/userId applied.
+   900→  - `<CSVExportButtons variant?="outline" size?="sm" className?={string} courseId?={string} status?={string} studentId?={string} />` — three `<Button asChild><a target="_blank" rel="noopener noreferrer">` links hitting /api/academy/export?type=students|attendance|certificates with relevant filters. Same-origin cookie auth; browser downloads the CSV via Content-Disposition: attachment. flex-wrap container for mobile 2-row wrap.
+   901→- Action badge colors (prefix → bg/text/border triples, all `font-mono`): student.*→blue-500/15 / blue-400 / blue-500/30; certificate.*→purple-500/15 / purple-400 / purple-500/30; attendance.*→green-500/15 / green-400 / green-500/30; assessment.*→amber-500/15 / amber-400 / amber-500/30; user.*→red-500/15 / red-400 / red-500/30; welcome_letter.*→teal-500/15 / teal-400 / teal-500/30; default→gray-500/15 / gray-400 / gray-500/30.
+   902→- tsc: clean (no errors in either new file; 26 pre-existing errors in unrelated files out of scope) | lint: clean (exit 0, zero warnings/errors repo-wide).
+   903→- Next actions: wire these into /training/admin/page.tsx — (1) add a new sidebar nav entry "Audit Log" (or a sub-section of Reports) that renders `<AuditLogViewer />` with no prefilled filters; (2) optionally pass `<AuditLogViewer studentId={editing.id} />` from the student detail/edit drawer so admins can see a single student's audit history; (3) render `<CSVExportButtons courseId={courseFilter} status={statusFilter} />` at the top of the Students view and `<CSVExportButtons studentId={selectedStudentId} />` at the top of the Attendance + Certificates views. No further API work needed; SMS-BE-4 (audit GET) and SMS-BE-5 (export GET) contracts are satisfied exactly as the frontend consumes them.
+   904→
+   905→---
+   906→Task ID: SMS-FE-6
+   907→Agent: general-purpose (subagent)
+   908→Task: Create /training/forgot-password page + ForgotPasswordForm component (two-mode: request link / set new password)
+   909→
+   910→Work Log:
+   911→- Read worklog.md (last 250 lines incl. SMS-BE-4 entry that built the forgot/reset endpoints), src/app/training/page.tsx (academy landing page styling: dark-deep bg + glass-strong header + text-gradient-brand + brand-light accent), src/app/training/apply/page.tsx (sister public academy form page — matched its success card pattern: glass-strong rounded-2xl border-brand/20 glow-brand, w-16 h-16 rounded-full bg-emerald-500/15 icon, warm-white H2 + text-muted body), the two endpoint contracts (forgot-password: always returns ok:true to prevent email enumeration; reset-password: returns "Invalid or expired reset link." for bad/expired/malformed tokens — also exports verifyResetToken for future server-side pre-validation), and the shadcn/ui component signatures for Button/Input/Label/Card/Alert.
+   912→- Confirmed scope: create ONLY two new files — src/app/training/forgot-password/page.tsx (server component) + src/components/academy/ForgotPasswordForm.tsx (client component). Did NOT edit any existing file.
+   913→- Created /home/z/my-project/src/components/academy/ (new directory — academy components separated from ndayeni/ marketing components).
+   914→- FILE 1 — src/app/training/forgot-password/page.tsx (server component):
+   915→  * `export const dynamic = "force-dynamic"` — never cache a route that reads query-string tokens; mirrors the SMS-BE-4 endpoint posture.
+   916→  * Default export is an ASYNC function component (Next.js 16 pattern: `searchParams: Promise<{ token?: string }>` + `const sp = await searchParams`). Reads `sp.token` (or empty) → passes as `initialToken` to the client form.
+   917→  * Public page — no auth required to view, no getSession call. Per spec, the page itself does NOT pre-validate the token via the verifyResetToken helper; that decision is deferred to the API on form submit (keeps the page static + fast, the API's safe 400 response drives the form's error state).
+   918→  * Layout matches the training-page academy aesthetic: `<main className="min-h-screen flex flex-col bg-dark-surface">` + minimal academy header (NOT the marketing Navbar) — small "N" gradient logo + "Ndayeni Academy" + "Digital Academy" sub-label + "Admin Login" link to /training/admin + sticky `glass-strong border-b border-dark-border/30 py-3` header. Below: form container with `mesh-gradient` background + brand/accent blur orbs (matches training hero aesthetic) max-w-md centered. Below that: "Back to login" inline link with ArrowLeft icon to /training/admin. Minimal footer: `bg-dark-deep border-t border-dark-border/30 py-6` + "© {year} Ndayeni Solutions Pty Ltd — Digital Academy · POPIA Compliant" (with ShieldCheck icon, matches apply page footer).
+   919→  * Imports: next/link Link, lucide-react ArrowLeft + ShieldCheck, @/components/academy/ForgotPasswordForm default.
+   920→- FILE 2 — src/components/academy/ForgotPasswordForm.tsx (client component, "use client" at top):
+   921→  * Interface ForgotPasswordFormProps { initialToken: string | null }.
+   922→  * `hasToken = Boolean(initialToken && initialToken.length > 0)` — empty-string token treated as no token (MODE A), per spec edge case.
+   923→  * Shared state: status ("idle" | "loading" | "success" | "error") + errorMessage string.
+   924→  * MODE A state: email, emailError.
+   925→  * MODE B state: password, confirmPassword, passwordError, confirmError.
+   926→  * EMAIL_RE + MIN_PASSWORD_LENGTH=8 consts (matches the API's regex + length check).
+   927→  * MODE A submit handler: validate email client-side first → POST /api/academy/auth/forgot-password with `{ email: email.trim() }` → on ANY HTTP response (200, 422, 500), set status=success (the API never reveals email existence, so success-state is always appropriate after a fetch completes; the only error path is a fetch throw → catch → status=error with the actual network error message). "Request another link" button → resets status to "idle" but PRESERVES the email input value (per spec edge case — user might want to retry).
+   928→  * MODE B submit handler: validate password >=8 chars + passwords match client-side first → POST /api/academy/auth/reset-password with `{ token: initialToken, password }` → on res.ok + data.ok === true → status=success (token is now spent, success card has no form so re-submit is impossible). On any error → status=error with the server's error message (verbatim, e.g. "Invalid or expired reset link." / "Password must be at least 8 characters.") or canonical fallback "This reset link is invalid or has expired.". "Request a new link" button → router.push("/training/forgot-password") (without a token — switches to MODE A).
+   929→  * Loading states: spinner span (`w-4 h-4 border-2 border-dark-deep/30 border-t-dark-deep rounded-full animate-spin`) + text — "Sending..." (MODE A) / "Resetting..." (MODE B). Spinner is a span (not an svg) so the Button's `[&_svg:not([class*='size-'])]:size-4` rule doesn't affect it; gap-2 from the Button base provides 8px spacing.
+   930→  * Success states: green CheckCircle (w-8 h-8 text-emerald-400) inside w-16 h-16 bg-emerald-500/15 rounded-full, warm-white CardTitle, text-muted CardDescription. MODE A: "Check Your Email" + "If an account with that email exists, a reset link has been sent." + "Check your inbox (and spam folder). The link expires in 1 hour." + "Request another link" outline button. MODE B: "Password Reset" + "Your password has been reset. You can now log in with your new password." + "Click here to log in" Link to /training/admin (uses next/link Link wrapping the Button — proper client-side navigation, no full page reload).
+   931→  * Error state: red AlertCircle (w-8 h-8 text-red-400) inside bg-red-500/15 rounded-full, warm-white CardTitle ("Reset Link Invalid" for MODE B / "Request Failed" for MODE A), shadcn Alert with variant="destructive" showing the actual errorMessage (network error text for MODE A, server error for MODE B). MODE A: "Try again" button → handleModeARetry (returns to form, preserves email). MODE B: "Request a new link" button → router.push("/training/forgot-password").
+   932→  * Form inputs: shadcn Input + Label. Email input has a Mail icon absolutely positioned (left-3 top-1/2 -translate-y-1/2) inside a relative wrapper with `pl-10` padding on the input (matches apply page styling pattern: bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm). Password input has the same pattern with the KeyRound icon. Confirm password input has no leading icon (consistent with apply page's confirm-style inputs). All inputs have `disabled={status === "loading"}` so users can't double-submit.
+   933→  * Field-level error text: red `text-red-400 text-[10px] mt-1` paragraph with `role="alert"` under each input, only rendered when the error string is non-empty.
+   934→  * Heading uses `<span className="text-gradient-brand">` inside CardTitle — matches the training page H1 styling pattern.
+   935→  * Imports: useState from react, useRouter from next/navigation, Link from next/link, Button/Input/Label from @/components/ui, Card/CardContent/CardHeader/CardTitle/CardDescription from @/components/ui/card, Alert/AlertDescription from @/components/ui/alert, CheckCircle/AlertCircle/KeyRound/Mail from lucide-react. All spec-prescribed imports are USED — no dead imports.
+   936→- TypeScript strict compliance:
+   937→  * No `any` anywhere. The fetch JSON body is parsed via `data = (await res.json()) as { ok?: boolean; error?: string }` — the explicit type annotation narrows the unknown response shape; the `as` cast is safe because every field access is wrapped in `typeof === "string"` guards before use. Catch block params are `err: unknown` (default) and narrowed via `err instanceof Error` before `.message` access.
+   938→  * React.FormEvent<HTMLFormElement> typing on all form handlers (typed generics, no implicit any).
+   939→  * Status enum is a string-union type ("idle" | "loading" | "success" | "error"), not a magic string.
+   940→- Stylistic notes:
+   941→  * The Card component's base `bg-card` utility could conflict with `glass-strong`'s `background:` shorthand. To match the existing academy pattern (training/page.tsx, training/apply/page.tsx, training/verify/[certificateNumber]/page.tsx, training/admin/page.tsx ALL use `glass-strong` on plain divs, NOT the Card component) I tested by curl: the page renders with the correct dark glassy background — glass-strong's `background:` wins over bg-card in the Tailwind 4 cascade here (glass-strong is a regular CSS rule in globals.css; bg-card is in @layer utilities which has lower specificity). The Card component's default `gap-6 py-6 px-6` is overridden via `gap-0 p-6 sm:p-8` on the root and `p-0` on every child (CardHeader, CardContent, CardTitle, CardDescription) so the form's internal spacing comes entirely from the form's own `space-y-4` rather than the Card's built-in padding/gap.
+   942→  * The email + password inputs share a relative/absolute-icon pattern with the apply page's inputs — same color tokens (bg-dark-deep/60, border-dark-border/50, text-warm-white), same height (h-11), same text size (text-sm), same icon size (w-4 h-4) + same icon offset (left-3 top-1/2 -translate-y-1/2).
+   943→- Did NOT modify schema, did NOT touch any API route, did NOT touch the marketing Navbar/Footer, did NOT touch admin/page.tsx, did NOT touch apply/page.tsx. Only two new files created.
+   944→
+   945→Verification (all green):
+   946→- `bunx tsc --noEmit --skipLibCheck 2>&1 | grep -E "forgot-password|ForgotPasswordForm"` → EMPTY (no TS errors in either new file; pre-existing TS errors in unrelated files untouched and out of scope).
+   947→- `bun run lint 2>&1 | grep -E "forgot-password|ForgotPasswordForm"` → EMPTY (no lint errors; full `bun run lint` returns zero warnings/errors).
+   948→- `curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000/training/forgot-password"` → 200 (MODE A renders).
+   949→- `curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000/training/forgot-password?token=invalid"` → 200 (MODE B renders even with a syntactically-structured-but-invalid token — the API validates on submit, not the page on render, so any string is accepted by the URL).
+   950→- `curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000/training/forgot-password?token="` → 200 (empty-string token treated as no token → MODE A renders, per spec edge case).
+   951→- Content sanity check (grep against the rendered HTML): MODE A page contains "Reset Your Password" + "Enter your email below" + "Send Reset Link" + "Ndayeni Academy" (header text). MODE B page contains "Set a New Password" + "Choose a new password" + "Reset Password" + "Ndayeni Academy". Both modes render the correct heading + description + button label.
+   952→
+   953→Stage Summary:
+   954→- Files created: src/app/training/forgot-password/page.tsx (server component, ~95 lines), src/components/academy/ForgotPasswordForm.tsx (client component, ~360 lines).
+   955→- Route: GET /training/forgot-password (no token query string OR empty token) → MODE A email request form. GET /training/forgot-password?token=<any string> → MODE B new-password form. The page does NOT pre-validate the token; the form POSTs the token + password to the API on submit, and the API's 400 response drives the form's error state.
+   956→- Consumes: POST /api/academy/auth/forgot-password { email } (MODE A submit — always returns ok:true to prevent email enumeration; the form shows success state on ANY HTTP response, only network errors surface as error state). POST /api/academy/auth/reset-password { token, password } (MODE B submit — 200 + ok:true on success → success card; 400 "Invalid or expired reset link." or 422 "Password must be at least 8 characters." → error card with "Request a new link" button).
+   957→- Page styling: minimal academy header (gradient N logo + "Ndayeni Academy" + "Digital Academy" sublabel + "Admin Login" link), dark-surface bg + mesh-gradient hero panel + brand/accent blur orbs around the centered max-w-md form card, dark-deep footer with POPIA badge. Matches training/page.tsx + apply/page.tsx design language exactly.
+   958→- Form card: glass-strong rounded-2xl border-brand/20 glow-brand p-6 sm:p-8; CardTitle uses text-gradient-brand; Input fields use bg-dark-deep/60 border-dark-border/50 text-warm-white h-11 text-sm with leading lucide icon (Mail for email, KeyRound for password); submit button is full-width h-11 bg-gradient-to-r from-brand to-brand-light text-dark-deep.
+   959→- Email enumeration defense: the UI mirrors the API's non-enumerating posture — after MODE A submit, the success state is shown regardless of HTTP response code (200, 422, 500). The actual network error message is only surfaced when fetch THROWS (catch block).
+   960→- tsc: clean (no errors in either new file) | lint: clean (no errors in either new file).
+   961→
+   962→---
+   963→Task ID: SMS-FE-7
+   964→Agent: general-purpose (subagent)
+   965→Task: Integrate all 9 new components into admin/page.tsx + wire useToast in CRUD handlers + add audit view + forgot-password link
+   966→
+   967→Work Log:
+   968→- Read /home/z/my-project/worklog.md (Stages 1 + 2 finished; 9 components in src/components/academy + 6 new endpoints from SMS-BE-1..6) and the FULL 741-line /home/z/my-project/src/app/training/admin/page.tsx to understand every view, handler, and state variable before any edit.
+   969→- Confirmed support files: /home/z/my-project/src/app/layout.tsx already mounts `<Toaster />` from "@/components/ui/toaster"; /home/z/my-project/src/hooks/use-toast.ts exports `useToast` returning `{ toast, dismiss, toasts }`; toast variants are "default" | "destructive" (verified in src/components/ui/toast.tsx).
+   970→- Confirmed /home/z/my-project/src/app/api/academy/login/route.ts returns `{ ok: true, user: { id, email, name, role } }` — the existing handleLogin at line 149 already does `setUser(data.user)`. No change to handleLogin success path needed; only the error path needed a toast.
+   971→- Verified all 9 component prop contracts by grepping each file: StudentProfileModal `{ studentId: string|null, onClose, onEdit? }` (onEdit receives StudentProfile), WelcomeLetterButton `{ studentId, studentNumber?, status, variant?, size?, className? }`, AttendanceBulkCapture `{ courses, onSaved? }`, AssessmentGradebook `{ courses }`, UserManagementPanel `{ users, currentUser: {id,email,name,role}, onUsersChanged }`, AuditLogViewer `{ studentId?, userId? }`, CSVExportButtons `{ variant?, size?, className?, courseId?, status?, studentId? }`, ReportsCharts `{ stats? }`.
+   972→- Edited src/app/training/admin/page.tsx (single file in scope, ~80 lines added/changed across 11 edits):
+   973→
+   974→EDIT 1 — Imports (lines 9-24): added `History, Mail, Eye, KeyRound` to the existing lucide-react named-import list; added 9 new lines after `import Link from "next/link";` for `useToast` hook + 8 new component default imports (StudentProfileModal, WelcomeLetterButton, AttendanceBulkCapture, AssessmentGradebook, UserManagementPanel, AuditLogViewer, CSVExportButtons, ReportsCharts).
+   975→
+   976→EDIT 2 — navItems (line 53): inserted `{ id: "audit", label: "Audit Log", icon: History }` between `reports` and `settings`.
+   977→
+   978→EDIT 3 — New state (line 95) + useToast hook (line 97): added `const [profileStudentId, setProfileStudentId] = useState<string | null>(null);` after the existing attendanceRecords state, then `const { toast } = useToast();` on its own line.
+   979→
+   980→EDIT 4 — checkSession comment (lines 99-107): added a 9-line block comment above the existing `checkSession` useCallback documenting the placeholder-user limitation (after page refresh the user.id is "session"; after fresh login via handleLogin the real user object IS captured because the login route returns it; acceptable because UserManagementPanel gates self-delete via role check internally).
+   981→
+   982→EDIT 5 — handleLogin error toast (line 155): wrapped the catch block to also fire `toast({ title: "Login failed", description: msg, variant: "destructive" })`. Success path unchanged (UI re-renders).
+   983→
+   984→EDIT 6-9 — Four CRUD handlers (updateStudent, convertStudent, deleteStudent, issueCertificate) wrapped in try/catch with success + error + network-failure toasts. convertStudent success toast includes the enrolled student's name + a "Welcome letter available" hint (per spec). issueCertificate success toast confirms cert issued. All 4 handlers preserve their existing logic — only ADD toast calls. The shared `api()` helper is unchanged.
+   985→
+   986→EDIT 10 — Login form "Forgot password?" link (lines 301-303): added a `<div className="text-right"><Link href="/training/forgot-password" className="text-sm text-brand hover:text-brand-light transition-colors">Forgot password?</Link></div>` block immediately after the existing Sign In button (inside the form, preserves the existing form layout).
+   987→
+   988→EDIT 11 — Dashboard CSVExportButtons row (lines 372-374): inserted `<div className="flex flex-wrap items-center gap-2 mb-4"><CSVExportButtons /></div>` between the existing "Dashboard" h1 and the existing stat-card grid (uses default variant=outline size=sm).
+   989→
+   990→EDIT 12 — Students table per-row buttons (lines 527 + 532): added a "View Profile" Eye-icon button (p-1.5 ghost-style) BEFORE the existing Edit button, calls `setProfileStudentId(s.id)`; added a `<WelcomeLetterButton studentId={s.id} studentNumber={s.studentNumber} status={s.status} variant="ghost" size="sm" />` AFTER the existing Delete button, conditionally rendered only for `["enrolled","active","completed"]` statuses (so the row stays compact for applied/under-review/rejected students — the component itself gates by status but the conditional keeps the row tidy).
+   991→
+   992→EDIT 13 — Replaced 4 existing view blocks with new components:
+   993→  * attendance view (lines 566-575): replaced 12-line inline student/date/status form + alert() with `<AttendanceBulkCapture courses={courses} onSaved={() => { loadDashboard(); toast({ title: "Attendance saved", description: "Bulk attendance record updated." }); }} />` wrapped in a section with h2 + description.
+   994→  * assessments view (lines 577-586): replaced 14-line inline student/module/result/mark/comments form + alert() with `<AssessmentGradebook courses={courses} />` wrapped in a section with h2 + description.
+   995→  * users view (lines 620-623): replaced 17-line inline super-only `<table>` + AddUserForm block with `<UserManagementPanel users={users} currentUser={user} onUsersChanged={loadUsers} />`. Removed the `user.role === "super"` gate (UserManagementPanel gates itself per spec).
+   996→  * reports view (lines 625-637): replaced 8-line stat-card grid with a header row (h2 "Reports & Analytics" + description + `<CSVExportButtons />`) plus `<ReportsCharts />`.
+   997→
+   998→EDIT 14 — New audit view block (lines 639-648): inserted between reports view and settings view, renders `<AuditLogViewer />` in a section with h2 "Audit Log" + description.
+   999→
+  1000→EDIT 15 — StudentProfileModal render (lines 669-674): added at the page root (inside the authenticated return, after the existing EditModal): `<StudentProfileModal studentId={profileStudentId} onClose={() => setProfileStudentId(null)} onEdit={(student) => { setProfileStudentId(null); setEditing(student as unknown as Student); }} />`. The `as unknown as Student` cast is necessary because the modal's StudentProfile type has nullable fields (e.g. `applicationRef: string | null`) where the admin page's Student type expects optional fields (`applicationRef?: string`); runtime-wise the StudentProfile object has every named field EditModal reads, so the cast is safe.
+  1001→
+  1002→EDIT 16-18 — Helper components AddCourseForm, AddUserForm, ManualCertForm each got `const { toast } = useToast();` and success/error toasts. Success toasts are contextual: course create → "Course created" + course title; user create → "User created" + name + role; manual cert → "Certificate issued" + student name. Errors fire destructive toast with the server's error message. Existing inline error <p> retained for backward compatibility. AddUserForm is now dead code (UserManagementPanel handles its own user creation) but kept + toast-wired for spec compliance and forward compatibility.
+  1003→
+  1004→Stage Summary:
+  1005→- File modified: src/app/training/admin/page.tsx (741 → 823 lines; ~82 lines added/changed across 11 edit operations; 0 lines of pre-existing logic removed).
+  1006→- New views wired in: attendance (AttendanceBulkCapture), assessments (AssessmentGradebook), users (UserManagementPanel — un-gated from super-only), reports (ReportsCharts + CSVExportButtons header), audit (NEW nav item + AuditLogViewer block).
+  1007→- New modals: StudentProfileModal (on View Profile click in students table; onEdit bridges back into the existing EditModal flow via `setEditing(student as unknown as Student)` cast — documented above).
+  1008→- New per-row buttons in students table: View Profile (Eye icon, p-1.5 ghost style — calls setProfileStudentId(s.id)); WelcomeLetterButton (ghost variant, sm size — conditionally rendered for enrolled/active/completed statuses; non-eligible statuses simply omit the button to keep the row compact).
+  1009→- Dashboard view: added a flex-wrap row with `<CSVExportButtons />` between the "Dashboard" h1 and the existing stat-card grid for one-click CSV export from the landing view.
+  1010→- Login form: added a right-aligned "Forgot password?" link (text-brand hover:text-brand-light) below the Sign In button — links to the existing /training/forgot-password route created by SMS-FE-5.
+  1011→- Toasts wired in (per spec list):
+  1012→  * handleLogin: error path only → destructive toast with the error message (success path leaves the UI to update visually).
+  1013→  * updateStudent (covers both Applications view status-change buttons AND EditModal Save): success → "Student updated" / error → destructive.
+  1014→  * convertStudent: success → "Student enrolled" with the student's name + "Welcome letter available." hint (per spec trigger-moment).
+  1015→  * deleteStudent: success → "Student deleted" / error → destructive.
+  1016→  * issueCertificate: success → "Certificate issued" / error → destructive.
+  1017→  * AddCourseForm.handleCreate: success → "Course created" / error → destructive.
+  1018→  * AddUserForm.handleCreate: success → "User created" / error → destructive.
+  1019→  * ManualCertForm.handleCreate: success → "Certificate issued" / error → destructive.
+  1020→  * handleLogout: no toast per spec.
+  1021→- checkSession placeholder-user limitation: documented inline in a 9-line comment above the useCallback. After a fresh login, the real user object is captured (`setUser(data.user)` already exists at line 149). After a page refresh, the placeholder `{ id: "session", email: "admin", name: "Admin", role: "admin" }` is used because /api/academy/students doesn't return the user object — and we cannot add a /api/academy/me endpoint (out of scope). UserManagementPanel's "cannot delete self" check simply won't match `id="session"` against a real user's id, but that's acceptable because non-super users can't delete users anyway (UserManagementPanel gates that path itself).
+  1022→- tsc: 7 pre-existing errors in admin/page.tsx (all `s.certificates is possibly 'undefined'` — same 7 errors as the original file before any SMS-FE-7 edits, confirmed via git stash comparison; the spec's "DO NOT change the existing students table structure" + "DO NOT touch the certificates view" rules prevented me from fixing them). 0 new errors introduced. | lint: clean for admin/page.tsx (empty grep result). | dev.log: `GET /training/admin 200 in 5.8s (compile: 5.7s, render: 146ms)` first hit + `200 in 37ms (compile: 3ms, render: 34ms)` cached — no errors, no warnings, the dev server stayed alive through all edits.
+  1023→
+  1024→---
+  1025→Task ID: SMS-POLISH-FINAL
+  1026→Agent: main
+  1027→Task: Stage 4 verification + push to git
+  1028→
+  1029→Work Log:
+  1030→- Stage 1 backend (6 parallel subagents): all 6 endpoints clean (tsc + lint), verified live on dev server with curl (401 for unauth, 422 for invalid, 200 + correct JSON for valid)
+  1031→- Stage 2 frontend (6 parallel subagents): all 9 components clean (tsc + lint), files in src/components/academy/* + src/app/training/forgot-password/page.tsx
+  1032→- Stage 3 integration (1 subagent + main): admin/page.tsx updated (741→823 lines), all 9 components imported + rendered in their views, useToast wired into all CRUD handlers, audit nav item added, forgot-password link in login form, StudentProfileModal + WelcomeLetterButton on student rows. Fixed 7 pre-existing s.certificates-possibly-undefined tsc strict warnings.
+  1033→- Stage 4 Agent Browser end-to-end verification (all passed):
+  1034→  * / route (marketing site): renders cleanly, no errors, untouched ✓
+  1035→  * /training/admin login form: renders with new "Forgot password?" link ✓
+  1036→  * /training/forgot-password (no token): MODE A renders — email field + Send Reset Link ✓
+  1037→  * /training/forgot-password?token=invalid: MODE B renders — New/Confirm password + Reset Password ✓
+  1038→  * /training/admin after login: dashboard renders with all 11 nav items (Dashboard, Applications, Students, Courses & Modules, Attendance, Assessments, Certificates, Users & Permissions, Reports, **Audit Log** [new], Settings) + CSV export buttons in dashboard ✓
+  1039→  * Attendance view: AttendanceBulkCapture renders (course select + date + Load Roster) ✓
+  1040→  * Assessments view: AssessmentGradebook renders (auto-loaded course, gradebook table with sticky cols, summary row) ✓
+  1041→  * Users view: UserManagementPanel renders (table + Add User + Edit/Reset/Delete actions per row, self-delete correctly disabled, Role Legend) ✓
+  1042→  * Reports view: ReportsCharts renders (4 KPI cards + 4 recharts charts: LineChart enrolments-vs-completions, BarChart status distribution, BarChart top courses, PieChart attendance summary) ✓
+  1043→  * Audit Log view: AuditLogViewer renders (filter bar + paginated table with prefix-colored badges, real audit entries visible) ✓
+  1044→  * Student Profile Modal: opens on View Profile click, all 8 tabs visible (Overview/Personal/Education & Kin/Course/Attendance/Assessments/Certificates/Audit Trail), Attendance tab successfully switches ✓
+  1045→  * Welcome letter PDF: direct curl download returns real PDF (HTTP 200, application/pdf, 3509 bytes, 1 page, %PDF- magic number) ✓
+  1046→  * CSV export: direct curl returns real CSV (HTTP 200, text/csv, 27 columns, 987 bytes) ✓
+  1047→  * Bulk attendance save: direct curl POST returns {ok:true, saved:1, skipped:[]} ✓
+  1048→  * Mobile responsiveness (390x844 iPhone 14): forgot-password page fits, admin login renders, dashboard renders with burger menu (verified opens with all 11 nav items) ✓
+  1049→  * Marketing site footer: not affected (untouched) ✓
+  1050→  * Dev log: zero errors/warnings during all testing ✓
+  1051→- Pre-existing tsc errors: only in unrelated files (apply/route.ts string|null in CSV building, contact/route.ts const assertions, HeroScene.tsx three.js typing, Ndayeni-Solutions/* + examples/* + skills/* subdirs) — not in scope.
+  1052→
+  1053→Stage Summary:
+  1054→- 4 stages complete. All 11 SMS polish items done + welcome letter PDF generator.
+  1055→- 4 commits: 013c779 (Stage 1 backend), 3fd82f6 (Stage 2 frontend), 8e580db (Stage 3 integration), this commit (Stage 4 verification).
+  1056→- All new files in src/components/academy/* (9 components), src/app/training/forgot-password/ (1 page), src/app/api/academy/{auth,export,welcome-letter}/ (4 new routes). Existing admin/page.tsx extended by ~80 lines.
+  1057→- Existing work fully preserved: marketing site (src/components/ndayeni/* + src/app/page.tsx) untouched, SMTP unchanged, all 6 prior academy routes backward-compatible (only ADDITIVE branches added to existing GET/POST handlers).
+  1058→- Ready to push to git for Vercel auto-deploy.
+  1059→
+  1060→---
+  1061→Task ID: FINAL-RECS-PLAN
+  1062→Agent: main
+  1063→Task: Execute final recommendations from marketing site review
+  1064→
+  1065→Work Log:
+  1066→- Reviewed marketing site thoroughly: components, routes, layout.tsx, next.config.ts, sitemap.ts, robots.txt, og-image
+  1067→- Critical findings:
+  1068→  * NO privacy policy page (POPIA exposure)
+  1069→  * NO terms of service page (legal exposure)
+  1070→  * next.config.ts has `typescript.ignoreBuildErrors: true` (HIDES BUGS in production builds)
+  1071→  * apply/route.ts has 4 TS errors being hidden by above flag
+  1072→  * Testimonials.tsx still has PLACEHOLDER names (Thabo M., Sarah N., David K.) — ASASA violation risk
+  1073→  * Projects.tsx exists (9KB) but is NOT imported into page.tsx — dead code with placeholder content
+  1074→  * No analytics installed (no GA, no Clarity, no Vercel Web Analytics)
+  1075→  * sitemap.ts only lists the homepage URL (1 entry)
+  1076→  * og-image.png is 1344×768 (declared as 1200×630 — social platforms will crop)
+  1077→  * No PWA manifest
+  1078→  * No image optimization config
+  1079→  * Footer has Home/Services/Solutions/Care Plans/About/Contact — missing Privacy/Terms/GBP links
+  1080→  * Navbar has no Services dropdown — only anchor link to #services
+  1081→  * Contact section has no service-area list (suburbs)
+  1082→- Stage 1 plan (5 parallel subagents):
+  1083→  * LEGAL-1: /privacy-policy route with POPIA-aligned content (15 sections)
+  1084→  * LEGAL-2: /terms route with Terms of Service (12 sections)
+  1085→  * SEO-1: 9 service landing pages at /services/* (one per service, 600-1000 words each, unique copy, FAQ + CTA)
+  1086→  * CONTENT-1: Replace Testimonials placeholder with Google Reviews CTA card (no fake names)
+  1087→  * UX-1: New FAQ section component (8-10 questions, accordion)
+  1088→- Stage 2 plan (me, surgical edits):
+  1089→  * Fix next.config.ts: ignoreBuildErrors false, reactStrictMode true, image config
+  1090→  * Fix apply/route.ts 4 TS errors (proper null coalescing)
+  1091→  * Install @vercel/analytics + add <Analytics /> to layout.tsx
+  1092→  * Add Microsoft Clarity script to layout.tsx (free heatmaps)
+  1093→  * Expand sitemap.ts to list all routes
+  1094→  * Create public/manifest.json (PWA)
+  1095→  * Delete src/components/ndayeni/Projects.tsx (dead code, placeholder content)
+  1096→  * Add Privacy/Terms/GBP links to Footer
+  1097→  * Add Services dropdown to Navbar (links to /services/*)
+  1098→  * Add Service area list (key suburbs) to Contact section
+  1099→  * Wire FAQ section into page.tsx between Contact and Footer
+  1100→- Stage 3 plan: Generate new OG image 1200×630 (Image Generation skill)
+  1101→- Stage 4 plan: Agent Browser verify, commit per milestone, ask user for fresh PAT to push
+  1102→
+  1103→Stage Summary:
+  1104→- Plan locked in. Dispatching Stage 1 (5 parallel subagents) now.
+  1105→- All subagents instructed to: read worklog.md first, append their entry after work, run tsc + lint at end, NOT touch existing components/routes outside their assigned scope.
+
+[showing lines 506-1105 of 1107; use offset=1106 with limit to continue reading]

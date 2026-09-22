@@ -1056,3 +1056,241 @@ Stage Summary:
 - All new files in src/components/academy/* (9 components), src/app/training/forgot-password/ (1 page), src/app/api/academy/{auth,export,welcome-letter}/ (4 new routes). Existing admin/page.tsx extended by ~80 lines.
 - Existing work fully preserved: marketing site (src/components/ndayeni/* + src/app/page.tsx) untouched, SMTP unchanged, all 6 prior academy routes backward-compatible (only ADDITIVE branches added to existing GET/POST handlers).
 - Ready to push to git for Vercel auto-deploy.
+
+---
+Task ID: FINAL-RECS-PLAN
+Agent: main
+Task: Execute final recommendations from marketing site review
+
+Work Log:
+- Reviewed marketing site thoroughly: components, routes, layout.tsx, next.config.ts, sitemap.ts, robots.txt, og-image
+- Critical findings:
+  * NO privacy policy page (POPIA exposure)
+  * NO terms of service page (legal exposure)
+  * next.config.ts has `typescript.ignoreBuildErrors: true` (HIDES BUGS in production builds)
+  * apply/route.ts has 4 TS errors being hidden by above flag
+  * Testimonials.tsx still has PLACEHOLDER names (Thabo M., Sarah N., David K.) — ASASA violation risk
+  * Projects.tsx exists (9KB) but is NOT imported into page.tsx — dead code with placeholder content
+  * No analytics installed (no GA, no Clarity, no Vercel Web Analytics)
+  * sitemap.ts only lists the homepage URL (1 entry)
+  * og-image.png is 1344×768 (declared as 1200×630 — social platforms will crop)
+  * No PWA manifest
+  * No image optimization config
+  * Footer has Home/Services/Solutions/Care Plans/About/Contact — missing Privacy/Terms/GBP links
+  * Navbar has no Services dropdown — only anchor link to #services
+  * Contact section has no service-area list (suburbs)
+- Stage 1 plan (5 parallel subagents):
+  * LEGAL-1: /privacy-policy route with POPIA-aligned content (15 sections)
+  * LEGAL-2: /terms route with Terms of Service (12 sections)
+  * SEO-1: 9 service landing pages at /services/* (one per service, 600-1000 words each, unique copy, FAQ + CTA)
+  * CONTENT-1: Replace Testimonials placeholder with Google Reviews CTA card (no fake names)
+  * UX-1: New FAQ section component (8-10 questions, accordion)
+- Stage 2 plan (me, surgical edits):
+  * Fix next.config.ts: ignoreBuildErrors false, reactStrictMode true, image config
+  * Fix apply/route.ts 4 TS errors (proper null coalescing)
+  * Install @vercel/analytics + add <Analytics /> to layout.tsx
+  * Add Microsoft Clarity script to layout.tsx (free heatmaps)
+  * Expand sitemap.ts to list all routes
+  * Create public/manifest.json (PWA)
+  * Delete src/components/ndayeni/Projects.tsx (dead code, placeholder content)
+  * Add Privacy/Terms/GBP links to Footer
+  * Add Services dropdown to Navbar (links to /services/*)
+  * Add Service area list (key suburbs) to Contact section
+  * Wire FAQ section into page.tsx between Contact and Footer
+- Stage 3 plan: Generate new OG image 1200×630 (Image Generation skill)
+- Stage 4 plan: Agent Browser verify, commit per milestone, ask user for fresh PAT to push
+
+Stage Summary:
+- Plan locked in. Dispatching Stage 1 (5 parallel subagents) now.
+- All subagents instructed to: read worklog.md first, append their entry after work, run tsc + lint at end, NOT touch existing components/routes outside their assigned scope.
+- Existing marketing site fully protected by isolation of new files + git commit history.
+
+---
+Task ID: CONTENT-1
+Agent: general-purpose (subagent)
+Task: Replace placeholder testimonials with honest Google Reviews CTA card
+
+Work Log:
+- Read context: worklog (last 600 lines), existing Testimonials.tsx (had Thabo M./Sarah N./David K. placeholders + fake "4.9/5 from 40+ reviews" badge), TrustSignals.tsx (icon + label pattern reused), Footer.tsx (Midrand address + Google Maps link for consistency), page.tsx (confirmed <Testimonials /> is rendered between CarePlans and About — no page-level edit needed).
+- Rewrote src/components/ndayeni/Testimonials.tsx in full: removed 3 fake testimonials array + fake Google rating badge; introduced an honest empty-state centered glass card (max-w-3xl) with a decorative Star-in-gradient-circle badge (aria-hidden), an H3 "Be one of our first reviewers on Google", a 60-second honest CTA paragraph, two buttons (primary gradient "Leave a Google review" → https://www.google.com/search?q=Ndayeni+Solutions+Midrand with a clearly-marked TODO to swap in the direct GBP review link once Place ID is verified; secondary outline "Read our story" → /#about via next/link), and the trust line "POPIA compliant · No spam · Reviews are public".
+- Added a 4-item trust strip directly below the card (MapPin/FileCheck/Building2/MapPin badges) reusing the same icon-text-color pattern as TrustSignals.tsx, in a 2-col (mobile) / 4-col (sm+) responsive grid.
+- Kept the section design language identical: bg-dark-deep + mesh-gradient + 2 decorative blurred orbs (bg-brand/4 top-left, bg-accent/3 bottom-right, both rounded-full blur-[120px]), glass rounded-xl border-brand/10 cards, gradient text on H2 second part via .text-gradient-brand.
+- GSAP animations preserved: header fade-up + CTA card fade-up + trust-badge staggered reveal, all using ScrollTrigger.create({ once: true }) with cleanup via trigger.kill() / triggers.forEach(t => t.kill()) in useEffect returns; ScrollTrigger registration guarded with `if (typeof window !== "undefined")`.
+- TypeScript strict: typed trustBadges with LucideIcon; no `any` anywhere.
+- Accessibility: section aria-labelledby="testimonials-heading"; aria-hidden="true" on decorative background shapes, blurred orbs, and the Star badge; ArrowRight icon also marked aria-hidden.
+- Verification (all four checks pass): `bunx tsc --noEmit --skipLibCheck 2>&1 | grep Testimonials` empty; `bun run lint 2>&1 | grep Testimonials` empty; `curl -s -o /dev/null -w "HTTP %{http_code}" http://localhost:3000/` → HTTP 200; `curl -s http://localhost:3000/ | grep -oE "Thabo|Sarah|David K"` → empty (placeholder names gone).
+
+Stage Summary:
+- File modified: src/components/ndayeni/Testimonials.tsx
+- Removed: 3 placeholder testimonials (Thabo M., Sarah N., David K.) + the invented "4.9/5 from 40+ reviews" Google rating badge
+- Added: honest empty-state + Google review CTA + 4 trust badges (Real SA business / Registered Pty Ltd / Founder-led since 2023 / Based in Midrand, Gauteng)
+- TODO: replace Google search URL with direct GBP review link once Place ID is verified
+- tsc: clean (no Testimonials errors) | lint: clean (no Testimonials warnings/errors) | homepage HTTP: 200 | placeholder names removed: yes
+
+---
+Task ID: UX-1
+Agent: general-purpose (subagent)
+Task: Create FAQ.tsx component (3 categories, 10 questions, accordion)
+
+Work Log:
+- Read worklog (last 600 lines), CarePlans.tsx, Services.tsx, accordion.tsx, page.tsx to confirm section pattern (mesh-gradient bg, GSAP header fade-up, glass cards, mobile-first) and shadcn Accordion primitive API
+- Confirmed brand color utilities available in globals.css (bg-brand/N, bg-accent/N, text-gradient-brand, text-warm-white, text-text-muted, mesh-gradient, glass) and the CarePlans/About "two blurred orbs" background pattern (bg-brand/4 + bg-accent/3, rounded-full blur-[120px])
+- Verified phone (tel:0838006989) and email (mailto:info@ndayenisolutions.co.za) from Contact.tsx + Footer.tsx so CTA buttons match the rest of the site
+- Created /home/z/my-project/src/components/ndayeni/FAQ.tsx — single file, no edits to existing files
+- Structured as: section#faq (aria-labelledby="faq-heading") -> mesh-gradient bg + 2 decorative orbs (aria-hidden) -> JSON-LD FAQPage schema script (for Google rich results / featured snippets) -> centered header (HelpCircle icon, eyebrow "Frequently Asked Questions", H2 with gradient "You Ask", subtitle) -> 3 glass card groups each with icon+title row and a shadcn Accordion (type="single" collapsible) -> bottom CTA band (gradient card with "Still have a question?" + Call primary / Email outline / Request a Quote gradient buttons)
+- 10 questions across 3 categories: Services & Pricing (Wrench icon, 4 Qs), Technical & Security (ShieldCheck icon, 3 Qs), Working with Us (Users icon, 3 Qs). Full answers copied verbatim from spec — no truncation, no invented stats
+- GSAP: header fade-up (opacity/y, 0.8s, power3.out, once:true) + category groups staggered fade-in (0.5s, stagger 0.1, once:true) + CTA band fade-in (0.7s). All three ScrollTriggers cleaned up with trigger.kill() in their useEffect return
+- Strict TS: no `any`, `LucideIcon` type used for category icons, `FAQItem`/`FAQCategory` interfaces declared, no untyped refs
+- Did NOT modify page.tsx — integration into section order is out of scope for this task
+
+Stage Summary:
+- File created: src/components/ndayeni/FAQ.tsx
+- 10 questions across 3 categories (Services & Pricing, Technical & Security, Working with Us)
+- Bottom CTA: call + email + quote buttons
+- JSON-LD FAQPage schema embedded for Google featured-snippet eligibility
+- Ready to be wired into page.tsx (integration step out of scope)
+- tsc: clean (no FAQ.tsx errors) | lint: clean (no FAQ.tsx errors)
+
+---
+Task ID: LEGAL-1
+Agent: general-purpose (subagent)
+Task: Create /privacy-policy page with POPIA-aligned 14-section content
+
+Work Log:
+- Read worklog.md (FINAL-RECS-PLAN entry confirmed scope: "LEGAL-1: /privacy-policy route with POPIA-aligned content (15 sections)"; adjusted to 14-section scope per task brief).
+- Read src/app/layout.tsx — confirmed site metadata base (https://ndayenisolutions.co.za), title template "%s | Ndayeni Solutions", lang="en-ZA", dark theme + brand tokens, JSON-LD already exposes address "4099 Finger Fish Street, Kaalfontein" + email info@ndayenisolutions.co.za + phone +27-83-800-6989 + founder Nhlakanipho Ntshangase.
+- Read src/app/training/forgot-password/page.tsx — copied the minimal academy header pattern: sticky `glass-strong border-b border-dark-border/30 py-3`, 9×9 gradient "N" logo box, "Back to" link with ArrowLeft, plus minimal bg-dark-deep footer with ShieldCheck POPIA badge. Used `max-w-4xl` (per spec) instead of the academy's `max-w-3xl`.
+- Read src/app/training/apply/page.tsx — confirmed dark-theme content styling conventions used throughout the academy public pages: `glass rounded-xl p-4 border-brand/10` info boxes, `text-warm-white font-medium text-sm` subheadings, `text-text-muted text-sm leading-relaxed` body copy, gradient brand buttons `bg-gradient-to-r from-brand to-brand-light text-dark-deep ... rounded-full`.
+- Read src/components/ui/card.tsx — confirmed Card is `flex flex-col gap-6 rounded-xl border py-6` (so I pass `py-5 gap-3` override + `glass border-brand/10` to match the dark theme panels used elsewhere on the site). CardHeader has `px-6` (overridden to `px-5`) and CardContent is `px-6` (overridden to `px-5`).
+- Read src/components/ui/accordion.tsx — not actually needed (sections are static content; only the rights grid uses Cards). No accordion rendered.
+- Read src/components/ndayeni/Footer.tsx — confirmed touch-link styling, footer pattern, and brand/info column design. The privacy page uses a minimal variant (just copyright + POPIA Aligned badge) to keep the page focused.
+- Read src/app/globals.css — confirmed all utility classes I used are defined: `.text-gradient-brand`, `.glass`, `.glass-strong`, `.glow-brand`, `.mesh-gradient`, `.section-divider`. Color tokens: brand #1e90ff, brand-light #4fb0ff, accent #2dd4bf, dark-deep #071515, dark-surface #0f1f1f, dark-card #142a2a, dark-border #1f3a3a, warm-white #ecf4f4, text-muted #8aafaf.
+- Created /home/z/my-project/src/app/privacy-policy/ (new directory — did NOT touch any existing file).
+- Created /home/z/my-project/src/app/privacy-policy/page.tsx — server component (no "use client"):
+  * Static `export const metadata` at top — title "Privacy Policy", description "How Ndayeni Solutions collects, uses and protects your personal information under POPIA (South Africa).", alternates.canonical "/privacy-policy". Renders as `<title>Privacy Policy | Ndayeni Solutions</title>` per layout template.
+  * Minimal header — small "N" gradient logo + "Ndayeni Solutions" + "Privacy Policy" subtitle + "Back to Home" link (ArrowLeft icon → /). Sticky, glass-strong, border-b border-dark-border/30.
+  * Hero — `Legal` eyebrow + h1 `<span className="text-gradient-brand">Privacy Policy</span>` (responsive text-3xl→text-5xl) + "Last updated: 22 September 2025" subtitle + one-line POPIA summary.
+  * In-page nav — `glass` card with 14 ordered anchor links to each section (#intro … #complaints). Two-column on sm+.
+  * Section 1 (Introduction & Scope): Ndayeni Solutions Pty Ltd identity, address, services list, scope of policy (website, contact form, WhatsApp, email, phone, training academy, service delivery), POPIA + PAIA references. FileText icon.
+  * Section 2 (Information We Collect): 5 glass info boxes — personal info provided directly, business info, technical info auto-collected, communication records, special categories (with CCTV note + explicit-consent rule). Database icon.
+  * Section 3 (How We Use Your Information): 8-bullet disc list of specific purposes (services, enquiries, training applications, certificates, reminders, billing, improvements, legal compliance). Workflow icon.
+  * Section 4 (Legal Basis for Processing): references POPIA Sections 19-21; lists consent, contract, legal obligation (SARS/FIC), legitimate interests (CCTV footage example), vital interests (emergency contact). Scale icon.
+  * Section 5 (Information Sharing & Third Parties): explicit "we do NOT sell your personal information" statement; 3 sharing-circumstance bullets; table of 5 third-party providers (Vercel, Supabase, Email/SMTP, Payment processors, Google) with Region + What-they-receive + Why columns. Share2 icon.
+  * Section 6 (Data Retention): general statement + glass card with 6 specific retention periods (enquiries 12mo, client records 5y per SARS, training records 7y per SAQA, CCTV 30-90d, logs 30d, certificates permanent). Clock icon.
+  * Section 7 (Security Measures): 3-column grid (Technical / Physical / Organisational) of glass info boxes; technical lists TLS, encrypted DBs, PBKDF2, access controls, regular review; incident-response paragraph references POPIA Section 22 (does not promise specific timelines shorter than POPIA requires). ShieldCheck icon.
+  * Section 8 (Your Rights Under POPIA): 2-column grid of 6 shadcn Cards — each with icon (Eye/PencilLine/Trash2/Ban/Undo2/MessageSquareWarning) in a `bg-brand/15` rounded square + CardTitle + CardDescription. Below the grid: glass "How to exercise" box linking to mailto:info@ndayenisolutions.co.za?subject=POPIA Request, says we respond within 30 days per POPIA Sections 23-24. Users icon.
+  * Section 9 (Cookies & Tracking): essential / analytics / no-advertising-cookies bullets, link to allaboutcookies.org for browser-settings guidance. Cookie icon.
+  * Section 10 (Children's Privacy): services not directed at children under 18; training applicants must be 18+ or have parental consent; parental contact procedure. Users icon.
+  * Section 11 (International Transfers): references POPIA Sections 73-76; only transfers to countries with adequate protection or under appropriate safeguards; 3-bullet list of providers + regions (Vercel global edge, Supabase chosen region, Google US with EU controls). Globe icon.
+  * Section 12 (Changes to This Policy): updated "Last updated" date posted on this page; material changes also announced on homepage for 30 days. RefreshCw icon.
+  * Section 13 (Contacting Us): Information Officer = Nhlakanipho Ntshangase; glass info card with Building2 (company), Mail (email), Phone (083 800 6989), MapPin (4099 Finger Fish Street, Kaalfontein, Midrand, 1635). Mail icon.
+  * Section 14 (Complaints): Information Regulator SA — physical address 5th Floor, River Side Office Park, 130 Nana Sita Street, Sunnyside, Pretoria; email complaints@inforegulator.org; website inforegulator.org.za. Gavel icon.
+  * CTA box — glass-strong border-brand/20 glow-brand rounded-2xl with brand blur orb; "Need to ask something?" + CTA button → /#contact (the homepage contact section).
+  * Disclaimer at the very bottom — glass rounded-lg p-4 with text "This policy is provided for general information. For specific legal advice on POPIA compliance, consult a qualified attorney."
+  * Minimal footer — copyright + POPIA Aligned badge with ShieldCheck icon.
+- Used only lucide-react icons + shadcn Card + Tailwind classes. Mobile-first responsive (single-column → 2-col grids on sm+). Anchor IDs on every section + scroll-mt-24 so the sticky header doesn't cover the heading when a toc link is clicked.
+- VERIFICATION:
+  * `bunx tsc --noEmit --skipLibCheck 2>&1 | grep "privacy-policy"` → empty (zero TypeScript errors in the new file).
+  * `bun run lint 2>&1 | grep "privacy-policy"` → empty (zero ESLint warnings/errors in the new file).
+  * `curl -s -o /dev/null -w "HTTP %{http_code}\n" "http://localhost:3000/privacy-policy"` → HTTP 200.
+  * Spot-checked rendered HTML for key phrases: "Privacy Policy", "Nhlakanipho Ntshangase", "Information Regulator", "POPIA", "4099 Finger Fish Street", "Need to ask something", "Protection of Personal Information Act" — all present.
+  * Verified `<title>Privacy Policy | Ndayeni Solutions</title>` + description meta + rel="canonical" href="https://ndayenisolutions.co.za/privacy-policy" render correctly in <head>.
+
+Stage Summary:
+- File created: src/app/privacy-policy/page.tsx (~600 lines, single default export server component, no "use client")
+- 14 sections + 6 rights Cards (2-col grid) + in-page ToC nav + CTA box + disclaimer + minimal header/footer
+- POPIA Act No. 4 of 2013 references throughout (Sections 19-21, 22, 23-24, 73-76); also cites PAIA Act No. 2 of 2000 and FIC Act
+- Information Officer = Nhlakanipho Ntshangase (CEO) — matches JSON-LD founder in layout.tsx
+- Information Regulator SA complaint path included with full postal address + email + website
+- No fake testimonials, no invented contact details (phone/email/address match layout.tsx JSON-LD + Footer.tsx)
+- No breach-notification timeline shorter than POPIA Section 22 requires (uses "as soon as reasonably possible" wording)
+- tsc: clean (empty grep) | lint: clean (empty grep) | HTTP: 200 | metadata: title + description + canonical all render correctly
+
+---
+Task ID: LEGAL-2
+Agent: general-purpose (subagent)
+Task: Create /terms page with 14-section South African IT services Terms of Service
+
+Work Log:
+- Read /home/z/my-project/worklog.md (project context: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui + Prisma; Ndayeni Solutions migrated site on port 3000).
+- Read /home/z/my-project/src/app/layout.tsx to confirm the design system (Inter + Space Grotesk fonts, en-ZA locale, dark theme tokens: bg-dark-surface #0f1f1f, bg-dark-card #142a2a, brand #1e90ff, accent #2dd4bf, warm-white #ecf4f4, text-muted #8aafaf; JSON-LD service schemas).
+- Read /home/z/my-project/src/app/training/forgot-password/page.tsx to lift the academy-style minimal header pattern: small "N" gradient logo (w-9 h-9 rounded-lg bg-gradient-to-br from-brand to-brand-light) + "Ndayeni Solutions" wordmark with sub-eyebrow + a "Back to Home" link with ArrowLeft icon, wrapped in sticky glass-strong border-b border-dark-border/30 py-3.
+- Read /home/z/my-project/src/components/ui/card.tsx to confirm the shadcn Card API (Card, CardHeader, CardTitle, CardContent, etc.) and pass-through `cn(...)` className merging.
+- Verified all required lucide-react icons exist (BookOpen, BookMarked, Server, FileText, CreditCard, Clock, Users, ShieldCheck, Scale, Copyright, Lock, XCircle, Gavel, RefreshCw, Mail, Phone, MapPin, HelpCircle, AlertTriangle, ArrowLeft, ArrowRight) via node -e require check — all true.
+- Created /home/z/my-project/src/app/terms/page.tsx implementing:
+  - Server component (NO "use client" directive).
+  - `export const metadata` with title "Terms of Service", description, alternates.canonical "/terms" exactly as specified.
+  - Minimal academy-style header (lifted from forgot-password pattern) with small "N" gradient logo + "Ndayeni Solutions" wordmark + "Midrand · South Africa" sub-eyebrow + "Back to Home" link.
+  - Main wrapper `<main className="min-h-screen flex flex-col bg-dark-surface">` with centered `<div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-16">`.
+  - Hero: eyebrow "Legal", h1 "Terms of Service" with text-gradient-brand gradient class, "Last updated: 22 September 2025" muted line, and the one-line summary.
+  - Table of Contents Card (BookMarked icon + "Contents" title + ol of all 14 sections with anchor links, 2-column responsive grid).
+  - 14 section Cards (#intro through #changes), each with:
+    - section wrapper (anchor id, aria-labelledby, scroll-mt-28)
+    - shadcn Card with bg-dark-card/60 backdrop-blur-sm border-dark-border/50 hover:border-brand/30
+    - icon badge (w-10/w-12 rounded-xl bg-brand/10) with section-specific lucide icon
+    - "Section 0X" font-mono accent eyebrow + bold warm-white CardTitle
+    - CardContent with prose paragraphs, definition list (Section 2), bullets (Sections 3/5/7/8), and an HTML table for SLA priority levels (Section 6)
+  - 14 anchor IDs verified present in DOM: #intro, #definitions, #services, #quotes, #payment, #sla, #client-responsibilities, #warranties, #liability, #ip, #confidentiality, #termination, #disputes, #changes, #contact (15 total — all 14 required + #confidentiality bonus for Section 11).
+  - #contact placed inside Section 14 as a sub-section (after #changes content) with Mail/Phone/MapPin contact info cards (mailto + tel + address).
+  - Bottom CTA box: glass Card with gradient border (bg-gradient-to-br from-brand/10 to-accent/5 border-brand/30), HelpCircle icon, "Have a question before signing up?" h2, body line, gradient Button linking to /#contact with ArrowRight.
+  - Bottom disclaimer with AlertTriangle amber icon: "These terms are provided for general information. For specific legal advice, consult a qualified South African attorney."
+  - Minimal footer (bg-dark-deep border-t border-dark-border/30 py-6) with copyright + POPIA compliant badge (matches forgot-password footer).
+- South African legal references woven into the copy:
+  - Section 1 (intro): Consumer Protection Act 68 of 2008
+  - Section 4 (quotes): Value-Added Tax Act 89 of 1991
+  - Section 5 (payment): Prescribed Rate of Interest Act 55 of 1975 — 1.5%/month interest on overdue amounts, 14-day suspension clause
+  - Section 7 (client responsibilities): Occupational Health and Safety Act 85 of 1993
+  - Section 11 (confidentiality): POPIA — Protection of Personal Information Act 4 of 2013
+  - Section 12 (termination): CPA Sections 48-49 unfair terms / severance
+  - Section 13 (disputes): Arbitration Foundation of South Africa (AFSA), Johannesburg jurisdiction, RSA governing law (4-step escalation: Informal → Mediation → Arbitration → Court)
+  - Bottom disclaimer: "consult a qualified South African attorney"
+- Mobile-first responsive throughout: grid-cols-1 → sm:grid-cols-2 breakpoints, text-sm → sm:text-base, gap-2 → sm:gap-3, scroll-mt-28 for sticky header offset, overflow-x-auto for SLA table.
+- All decorative elements have aria-hidden, all section headings have aria-labelledby, semantic <main>/<section>/<header>/<footer> structure with POPIA footer badge.
+- Professional South African English (en-ZA) throughout: "organisation", "recognised", "licence" (noun) vs "licensed" (verb), ZAR currency, "business hours" not "working hours".
+- Verified: `bunx tsc --noEmit --skipLibCheck` filtered to terms/page → EMPTY (no type errors). `bun run lint` filtered to terms/page → EMPTY (no lint warnings/errors). `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/terms` → 200.
+- Verified all 14 required anchor IDs render in DOM via curl + grep (15 total incl. bonus #confidentiality).
+- Verified all 4 SA legal reference phrases render in DOM: POPIA, Consumer Protection Act 68 of 2008, Prescribed Rate of Interest Act, AFSA + Arbitration Foundation of South Africa.
+
+Stage Summary:
+- File created: src/app/terms/page.tsx
+- 14 sections covering intro, definitions, services, quotes, payment, SLAs, client responsibilities, warranties, liability, IP, confidentiality, termination, disputes, changes
+- SA legal references: POPIA (Act 4 of 2013), CPA 68/2008 (incl. Sections 48-49 unfair terms), AFSA (Arbitration Foundation of South Africa), Prescribed Rate of Interest Act 55 of 1975; bonus refs to VAT Act 89/1991 and OHSA 85/1993
+- tsc: clean (no errors in terms/page) | lint: clean (exit 0, no warnings/errors in terms/page) | HTTP: 200 OK
+
+---
+Task ID: SEO-1
+Agent: general-purpose (subagent)
+Task: Create 9 service landing pages + shared template + index page
+
+Work Log:
+- Read worklog.md (last 600 lines), src/app/layout.tsx (font/design system: Inter + Space_Grotesk, dark-deep #071515, warm-white #ecf4f4, brand #1e90ff, accent #2dd4bf), src/app/page.tsx (section order: Hero→WhyNdayeni→Services→BusinessSolutions→CarePlans→Testimonials→About→Contact with SectionDivider variants), src/components/ndayeni/Services.tsx (confirmed 9 service titles + descriptions + accent colors to match for consistency), src/components/ndayeni/Navbar.tsx + Footer.tsx (design language: glass-strong sticky header, gradient text-warm-white, brand-light accent), src/app/training/page.tsx (academy landing pattern: hero→grid→CTA), WhyNdayeni.tsx + CarePlans.tsx (GSAP ScrollTrigger fade-up + stagger pattern with `if (typeof window !== "undefined")` guard).
+- Created src/components/academy/ServicePageTemplate.tsx — client component, 768 lines. Renders the full service landing page from structured props (slug, title, shortTitle, tagline, description, heroImage, icon, accentColor, longDescription[], whatWeDo[], whoItsFor[], process[], faqs[], pricingGuidance, serviceArea, relatedServices[]). Sections in order: sticky minimal header (N logo + "Ndayeni Solutions" + "All Services" link + "Request a Quote" button), Hero (H1 gradient text + tagline + 2 CTAs to /#contact and tel:0838006989 with optional heroImage dark-overlay background), Intro (glass card with icon + description + tagline + longDescription paragraphs), What We Do grid (3-col responsive with Check icons), Who It's For (2-col list with audience badges), Our Process (numbered 01-04 cards), Pricing Guidance (highlighted glass-strong card with "Get an exact quote" CTA), Service Area (paragraph + suburb badges for Midrand/Centurion/Fourways/Randburg/Sandton/Roodepoort/Kempton Park/Edenvale/Kaalfontein/Pretoria), FAQ (shadcn Accordion type=single collapsible), Related Services (3 cards linking to sibling routes), Final CTA band (gradient bg with two buttons), Footer note (link back to /services). Two small hooks (useScrollFadeUp + useScrollStagger) implement the WhyNdayeni/CarePlans GSAP pattern with proper ScrollTrigger cleanup.
+- IMPORTANT RSC FIX: Initial design used `icon: LucideIcon` per spec and passed `icon={Headphones}` etc. directly from server-component route files. Dev server returned 500 on every route with: "Functions cannot be passed directly to Client Components unless you explicitly expose it with 'use server'". React Server Components cannot serialise function values (LucideIcon is a forwardRef component function). Refactored the prop to `icon: string` (a key into an internal ICON_REGISTRY map defined inside the client component), and updated all 9 route files to pass `icon="headphones"` / `icon="monitor"` / `icon="wifi"` / `icon="cctv"` / `icon="printer"` / `icon="globe"` / `icon="palette"` / `icon="workflow"` / `icon="graduation-cap"`. Removed the per-file `import { IconName } from "lucide-react"` since route files no longer need to import the icon component. Documented the deviation in the prop's JSDoc comment. This keeps route files as pure Server Components with static metadata (per spec constraint) while still letting the template pick the right icon client-side. Sparkles used as fallback if the key is somehow invalid.
+- Created 9 route files at src/app/services/<slug>/page.tsx — each is a Server Component exporting `metadata` (title, description, alternates.canonical) and a default component that imports ServicePageTemplate and passes all service-specific props. All 9 use UNIQUE, specific, valuable content written from scratch (not paraphrased from the homepage). Each page ~700-1000 words of longDescription + whatWeDo + whoItsFor + process + faqs + pricing + serviceArea. Real SA context throughout: Midrand/Kaalfontein/Centurion/Sandton/Pretoria suburb references, ZAR pricing (R1,500/month, R8,500 install, R350 diagnostic, R450 callout etc.), POPIA references where relevant (IT support data security, CCTV privacy obligations, web design POPIA-compliant contact forms), South African examples (Vumatel/Openserve/Frogfoot ISPs, Pastel/Xero accounting, GoodX medical practice software, SARS/medical aid scanning workflows, SAPS evidence standards).
+- Each page has 6-8 FAQ Q&As with full specific answers (not placeholders), 4-5 process steps with step numbers (01-04), 4-9 "What We Do" deliverable cards, 4-5 "Who It's For" audience types, 3 "Related Services" cross-links (chosen so the 9 pages form a connected graph — IT Support↔Repairs↔Networking↔CCTV↔Printer for infrastructure cluster; Web Design↔Branding↔Automation↔Training for digital cluster).
+- Created src/app/services/page.tsx — Server Component, 346 lines. Renders the services index page: sticky minimal header, hero ("Our Services" with gradient text + tagline), 9 service cards grouped by category (IT & Infrastructure | Digital Services | Training), each card linking to its /services/<slug> with icon + shortTitle badge + description + "Learn more →", bottom CTA band ("Not sure what you need? Get a free assessment" → /#contact), footer note. Uses LucideIcon directly (this is a Server Component rendering server-only icons inline, no RSC boundary crossing).
+- Verification:
+  * tsc filtered for services/ServicePageTemplate: empty (no errors). All 9 route files + template + index compile clean.
+  * Full tsc: only pre-existing errors in unrelated files (HeroScene three.js typing, contact/route const assertions, apply/route null checks, training/verify route, Ndayeni-Solutions/* and skills/* subdirs). 0 new errors introduced by SEO-1.
+  * lint: clean (exit 0, no warnings/errors anywhere).
+  * HTTP checks on dev server: all 10 routes return 200 — /services (index) + /services/{it-support-outsourcing, computer-repairs, networking-wifi, cctv-security, printer-office-technology, web-design, graphic-design-branding, digital-automation, digital-skills-training}.
+  * Page content sanity check: curl + grep on /services/it-support-outsourcing confirms all 9 expected section headings rendered (Hero title, tagline, What We Do, Who It's For, Service Area, Frequently Asked, Related Services, Ready to get started, All Services nav link). Curl + grep on /services confirms all 9 service titles + the "Not sure what you need" CTA rendered on the index.
+  * Word count per page (visible text after HTML strip): all 9 pages between ~1145 and ~1316 words including nav/header/footer — actual body content comfortably exceeds the 700-1000 word spec target.
+
+Stage Summary:
+- Files created: 11 total
+  * src/components/academy/ServicePageTemplate.tsx (768 lines, client component, shared template)
+  * src/app/services/page.tsx (346 lines, server component, services index)
+  * src/app/services/it-support-outsourcing/page.tsx (145 lines)
+  * src/app/services/computer-repairs/page.tsx (149 lines)
+  * src/app/services/networking-wifi/page.tsx (145 lines)
+  * src/app/services/cctv-security/page.tsx (151 lines)
+  * src/app/services/printer-office-technology/page.tsx (146 lines)
+  * src/app/services/web-design/page.tsx (156 lines)
+  * src/app/services/graphic-design-branding/page.tsx (145 lines)
+  * src/app/services/digital-automation/page.tsx (145 lines)
+  * src/app/services/digital-skills-training/page.tsx (145 lines)
+- Routes: /services (index) + 9 service detail pages at /services/{slug} above.
+- Each page: 700-1000 words of unique content, 6-8 FAQ Q&As with full answers, 4-5 process steps, 4-9 "What We Do" deliverables, 4-5 audience types, 3 cross-links to related services, pricing guidance with ZAR figures, service area paragraph + 10 suburb badges, SEO metadata with canonical URL.
+- tsc: clean (0 new errors in services/ or ServicePageTemplate, only pre-existing errors in unrelated files). | lint: clean (exit 0). | HTTP checks: all 10 routes return 200.
+- Single spec deviation documented inline in ServicePageTemplate.tsx JSDoc: `icon: LucideIcon` prop changed to `icon: string` with internal ICON_REGISTRY map, due to React Server Components not being able to serialise function values across the server→client boundary. All 9 route files updated to pass string keys. No other spec deviation.

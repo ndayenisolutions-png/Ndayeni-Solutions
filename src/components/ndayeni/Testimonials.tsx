@@ -1,8 +1,11 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { Quote, Star } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Star, MapPin, FileCheck, Building2, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -10,46 +13,44 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
-type Testimonial = {
-  name: string;
-  role: string;
-  location: string;
-  quote: string;
-  initial: string;
+type TrustBadge = {
+  icon: LucideIcon;
+  label: string;
+  iconText: string;
 };
 
-// PLACEHOLDER TESTIMONIALS — replace with real client reviews when available.
-const testimonials: Testimonial[] = [
+// Same icon + label pattern as TrustSignals.tsx — honest, verifiable signals.
+const trustBadges: TrustBadge[] = [
   {
-    name: "Thabo M.",
-    role: "Owner, Small Retail Shop",
-    location: "Midrand",
-    initial: "T",
-    quote:
-      "Ndayeni set up our entire shop — CCTV, Wi-Fi, and the computers — in two days. The cameras alone gave us peace of mind we hadn't had in years. Fair pricing, showed up on time, and explained everything in plain language.",
+    icon: MapPin,
+    label: "Real South African business",
+    iconText: "text-brand",
   },
   {
-    name: "Sarah N.",
-    role: "Operations Manager, NGO",
-    location: "Johannesburg",
-    initial: "S",
-    quote:
-      "We don't have an IT department, so having Ndayeni on call has been a lifeline. They respond quickly, fix the problem, and actually teach us how to prevent it next time. Our network has been rock-solid since they set it up.",
+    icon: FileCheck,
+    label: "Registered Pty Ltd",
+    iconText: "text-accent",
   },
   {
-    name: "David K.",
-    role: "Home User",
-    location: "Kaalfontein",
-    initial: "D",
-    quote:
-      "My laptop was painfully slow and I was about to buy a new one. Ndayeni installed an SSD and added RAM — now it boots in 20 seconds. They saved me thousands of rands I didn't need to spend. Honest, practical, and genuinely helpful.",
+    icon: Building2,
+    label: "Founder-led since 2023",
+    iconText: "text-brand-light",
+  },
+  {
+    icon: MapPin,
+    label: "Based in Midrand, Gauteng",
+    iconText: "text-accent",
   },
 ];
+
+// TODO: Replace this URL with the direct Google Business Profile review link once verified (https://search.google.com/local/reviews?place=<PLACE_ID>)
+const GOOGLE_REVIEW_URL = "https://www.google.com/search?q=Ndayeni+Solutions+Midrand";
 
 export default function Testimonials() {
   const sectionRef = useRef<HTMLElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
-  const cardsRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const trustRef = useRef<HTMLDivElement>(null);
 
   // Header fade-up on scroll
   useEffect(() => {
@@ -71,32 +72,56 @@ export default function Testimonials() {
     };
   }, []);
 
-  // Cards staggered reveal
+  // Main CTA card + trust badges reveal on scroll
   useEffect(() => {
-    const grid = cardsRef.current;
-    if (!grid) return;
+    const card = cardRef.current;
+    const trust = trustRef.current;
+    const triggers: ScrollTrigger[] = [];
 
-    const items = grid.querySelectorAll<HTMLElement>(".testimonial-card");
-    if (!items.length) return;
+    if (card) {
+      gsap.set(card, { opacity: 0, y: 40 });
+      triggers.push(
+        ScrollTrigger.create({
+          trigger: card,
+          start: "top 80%",
+          once: true,
+          onEnter: () => {
+            gsap.to(card, {
+              opacity: 1,
+              y: 0,
+              duration: 0.6,
+              ease: "power3.out",
+            });
+          },
+        })
+      );
+    }
 
-    gsap.set(items, { opacity: 0, y: 40 });
-    const trigger = ScrollTrigger.create({
-      trigger: grid,
-      start: "top 80%",
-      once: true,
-      onEnter: () => {
-        gsap.to(items, {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          stagger: 0.1,
-          ease: "power3.out",
-        });
-      },
-    });
+    if (trust) {
+      const items = trust.querySelectorAll<HTMLElement>(".trust-badge");
+      if (items.length) {
+        gsap.set(items, { opacity: 0, y: 24 });
+        triggers.push(
+          ScrollTrigger.create({
+            trigger: trust,
+            start: "top 85%",
+            once: true,
+            onEnter: () => {
+              gsap.to(items, {
+                opacity: 1,
+                y: 0,
+                duration: 0.5,
+                stagger: 0.1,
+                ease: "power3.out",
+              });
+            },
+          })
+        );
+      }
+    }
 
     return () => {
-      trigger.kill();
+      triggers.forEach((t) => t.kill());
     };
   }, []);
 
@@ -128,91 +153,93 @@ export default function Testimonials() {
             <span className="text-gradient-brand">Say About Us</span>
           </h2>
           <p className="text-text-muted text-sm sm:text-base max-w-2xl mx-auto px-2 sm:px-0">
-            Don&apos;t just take our word for it. Here&apos;s what business
-            owners and home users across South Africa have said about working
-            with Ndayeni Solutions.
+            We&apos;re a young, growing technology business — and our clients&apos;
+            words mean everything to us. As we collect real reviews, we&apos;ll
+            feature them here. In the meantime, find us on Google and see what
+            our community is saying.
           </p>
         </div>
 
-        {/* Testimonial Cards */}
-        <div
-          ref={cardsRef}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6"
-        >
-          {testimonials.map((testimonial) => (
-            <Card
-              key={testimonial.name}
-              className="testimonial-card h-full bg-dark-card/80 backdrop-blur-sm border-dark-border/50 hover:border-brand/40 transition-all duration-500 hover:-translate-y-1 group"
-            >
-              <CardContent className="p-5 sm:p-6 lg:p-8">
-                {/* Quote icon */}
-                <Quote
-                  className="text-brand/30 w-10 h-10 mb-4"
-                  aria-hidden="true"
-                />
+        {/* Honest empty-state + Google review CTA (single centered glass card) */}
+        <div ref={cardRef} className="max-w-3xl mx-auto">
+          <Card className="glass rounded-xl border-brand/10 overflow-hidden">
+            <CardContent className="p-6 sm:p-10 lg:p-12 text-center">
+              {/* Star badge in a circular gradient bg (decorative; headline below is descriptive) */}
+              <div
+                aria-hidden="true"
+                className="mx-auto mb-5 sm:mb-6 w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-brand to-brand-light flex items-center justify-center shadow-lg shadow-brand/30"
+              >
+                <Star className="w-8 h-8 sm:w-10 sm:h-10 text-dark-deep fill-dark-deep" />
+              </div>
 
-                {/* 5 gold stars */}
-                <div
-                  className="flex gap-0.5 mb-4"
-                  aria-label="5 out of 5 stars"
-                  role="img"
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-warm-white mb-3 sm:mb-4">
+                Be one of our first reviewers on Google
+              </h3>
+              <p className="text-text-muted text-sm sm:text-base leading-relaxed max-w-xl mx-auto mb-6 sm:mb-8">
+                If we&apos;ve helped you with IT support, repairs, CCTV, a
+                website or training — your honest review helps other South
+                Africans find a technology partner they can trust. It takes 60
+                seconds.
+              </p>
+
+              {/* CTA buttons */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+                <Button
+                  asChild
+                  size="lg"
+                  className="bg-gradient-to-r from-brand to-brand-light text-dark-deep hover:shadow-2xl hover:shadow-brand/40 transition-all duration-500 font-semibold px-8 py-5 sm:py-6 text-sm sm:text-base rounded-full w-full sm:w-auto"
                 >
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className="w-4 h-4 text-yellow-400 fill-yellow-400"
-                      aria-hidden="true"
-                    />
-                  ))}
-                </div>
-
-                {/* Testimonial text */}
-                <blockquote className="text-warm-white/90 text-sm sm:text-base leading-relaxed italic mb-5">
-                  &ldquo;{testimonial.quote}&rdquo;
-                </blockquote>
-
-                {/* Divider */}
-                <div
-                  className="h-px bg-dark-border/30 mb-4"
-                  aria-hidden="true"
-                />
-
-                {/* Author row */}
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-full bg-gradient-to-br from-brand to-brand-light flex items-center justify-center flex-shrink-0"
-                    aria-hidden="true"
+                  <a
+                    href={GOOGLE_REVIEW_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
                   >
-                    <span className="text-dark-deep font-bold text-sm">
-                      {testimonial.initial}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-warm-white font-semibold text-sm truncate">
-                      {testimonial.name}
-                    </div>
-                    <div className="text-text-muted text-xs truncate">
-                      {testimonial.role} ({testimonial.location})
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    Leave a Google review
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  </a>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="border-brand/30 text-brand hover:bg-brand/10 hover:border-brand/60 hover:shadow-lg hover:shadow-brand/10 transition-all duration-500 px-8 py-5 sm:py-6 text-sm sm:text-base rounded-full w-full sm:w-auto"
+                >
+                  <Link href="/#about">Read our story</Link>
+                </Button>
+              </div>
+
+              {/* Trust line */}
+              <p className="text-text-muted text-[11px] sm:text-xs mt-5 sm:mt-6">
+                POPIA compliant · No spam · Reviews are public
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Google rating badge */}
-        <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <div className="flex items-center gap-2 glass rounded-full px-5 py-2.5 border-brand/20">
-            <div className="flex gap-0.5" aria-hidden="true">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              ))}
-            </div>
-            <span className="text-warm-white font-semibold text-sm">4.9 / 5</span>
-            <span className="text-text-muted text-xs">from 40+ reviews</span>
-          </div>
-          <p className="text-text-muted text-xs">Leave us a review on Google →</p>
+        {/* Trust strip — 2-col mobile, 4-col sm+ */}
+        <div
+          ref={trustRef}
+          className="mt-6 sm:mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-3xl mx-auto"
+        >
+          {trustBadges.map((badge) => {
+            const Icon = badge.icon;
+            return (
+              <div
+                key={badge.label}
+                className="trust-badge glass rounded-xl p-4 sm:p-5 border-brand/10 text-center"
+              >
+                <div className="w-10 h-10 rounded-lg bg-brand/10 flex items-center justify-center mb-2.5 mx-auto">
+                  <Icon
+                    className={`w-5 h-5 ${badge.iconText}`}
+                    aria-hidden="true"
+                  />
+                </div>
+                <h3 className="text-warm-white font-semibold text-xs sm:text-sm leading-tight">
+                  {badge.label}
+                </h3>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
