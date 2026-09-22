@@ -43,12 +43,87 @@ function logAudit(opts: {
   });
 }
 
-// ─── GET — list students with search and filters ───
+// ─── GET — single student profile (?id=X) OR list with search/filters ───
 export async function GET(req: NextRequest) {
   const session = getSession(req);
   if (!session) return NextResponse.json({ ok: false, error: "Not authenticated." }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
+
+  // ── Profile detail mode: ?id=<studentId> ──
+  const idParam = searchParams.get("id");
+  if (idParam) {
+    const student = await db.student.findUnique({
+      where: { id: idParam },
+      include: {
+        certificates: true,
+        attendances: { orderBy: { date: "desc" }, take: 50 },
+        assessments: { orderBy: { date: "desc" }, take: 50 },
+        auditLogs: { orderBy: { timestamp: "desc" }, take: 30 },
+      },
+    });
+
+    if (!student) {
+      return NextResponse.json({ ok: false, error: "Student not found." }, { status: 404 });
+    }
+
+    // Fetch the course + active modules only when a course is assigned
+    const course = student.courseId
+      ? await db.course.findUnique({
+          where: { id: student.courseId },
+          include: { modules: { where: { active: true }, orderBy: { order: "asc" } } },
+        })
+      : null;
+
+    // ── Computed fields (merged into a copy of the student — do NOT mutate Prisma result) ──
+    const attendanceTotal = student.attendances.length;
+    const attendancePresent = student.attendances.filter((a) => a.status === "present").length;
+    const attendanceRate =
+      attendanceTotal > 0
+        ? Math.round((attendancePresent / attendanceTotal) * 1000) / 10 // 1 decimal place
+        : 0;
+
+    const assessmentTotal = student.assessments.length;
+    const assessmentPass = student.assessments.filter((a) => a.result === "pass").length;
+    const passRate =
+      assessmentTotal > 0
+        ? Math.round((assessmentPass / assessmentTotal) * 1000) / 10
+        : 0;
+
+    // Most recent active certificate's number (certificates are already included, no extra query)
+    const activeCert = student.certificates
+      .filter((c) => c.status === "active")
+      .sort((a, b) => b.issueDate.getTime() - a.issueDate.getTime())[0];
+    const certificateNumber = activeCert?.certificateNumber ?? null;
+
+    const enrolledDays = student.enrolledAt
+      ? Math.floor((Date.now() - student.enrolledAt.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
+    const expectedCompletionDays =
+      student.enrolledAt && student.expectedCompletion
+        ? Math.floor(
+            (student.expectedCompletion.getTime() - student.enrolledAt.getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        : null;
+
+    const computed = {
+      attendanceRate,
+      passRate,
+      certificateNumber,
+      enrolledDays,
+      expectedCompletionDays,
+    };
+
+    return NextResponse.json({
+      ok: true,
+      student: { ...student, ...computed },
+      course,
+    });
+  }
+
+  // ── List mode: search + filter (preserved, unchanged) ──
   const q = (searchParams.get("q") || "").trim();
   const status = searchParams.get("status");
   const courseId = searchParams.get("courseId");

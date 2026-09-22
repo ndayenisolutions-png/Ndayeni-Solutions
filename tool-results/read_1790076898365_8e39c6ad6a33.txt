@@ -1,0 +1,302 @@
+     1→---
+     2→Task ID: migrate-ndayeni
+     3→Agent: main
+     4→Task: Clone https://github.com/mabasoeleanor-cpu/Ndayeni-Solutions.git, inspect it, and migrate it into the active Next.js project so it runs on the dev server (port 3000). Install deps and start it.
+     5→
+     6→Work Log:
+     7→- Cloned repo into /home/z/my-project/Ndayeni-Solutions/
+     8→- Inspected key files: package.json, src/app/page.tsx, src/app/layout.tsx, src/app/globals.css, src/app/api/contact/route.ts, prisma/schema.prisma, tailwind.config.ts, tsconfig.json, next.config.ts, components.json, .env.example, Hero.tsx, HeroScene.tsx, sitemap.ts, api/route.ts, robots.txt
+     9→- Inspected active project structure; confirmed both projects share the same base stack (Next.js 16, React 19, Tailwind 4, shadcn/ui, Prisma SQLite)
+    10→- Identified missing deps in active project: gsap, three, @react-three/drei, @react-three/fiber, @types/three, nodemailer, @types/nodemailer
+    11→- Installed all missing deps via `bun add` / `bun add -d`
+    12→- Migrated source files via cp:
+    13→  - src/app/globals.css (Ndayeni brand palette + custom utilities)
+    14→  - src/app/page.tsx (Ndayeni homepage: Navbar, Hero, SectionDivider, Services, About, Contact, Footer)
+    15→  - src/app/layout.tsx (Ndayeni metadata, JSON-LD, Inter + Space Grotesk fonts)
+    16→  - src/app/sitemap.ts (Ndayeni sitemap)
+    17→  - src/app/icon.svg (app icon)
+    18→  - src/app/api/contact/route.ts (nodemailer contact form with Ethereal test-mode fallback + reCAPTCHA)
+    19→  - src/components/ndayeni/{Navbar,Hero,HeroScene,Services,About,SectionDivider,Contact,Footer}.tsx (8 components)
+    20→  - src/hooks/useGSAPAnimations.ts
+    21→  - public/{logo.svg,favicon.svg,og-image.png,hero-bg.png,3d-element-1.png,robots.txt}
+    22→- Fixed a bug in the original repo: `text-gradient-teal` class used in Hero.tsx (the "Business" headline word) was NOT defined in globals.css — would render text invisible. Added `.text-gradient-teal` alias to globals.css.
+    23→- Excluded the cloned Ndayeni-Solutions/ folder from ESLint (its static export + examples were producing 4378 lint problems) by adding "Ndayeni-Solutions/**" to eslint.config.mjs ignores. Active project src/ lints clean.
+    24→- Added `allowedDevOrigins: [".space-z.ai"]` to next.config.ts to suppress cross-origin dev warning.
+    25→- Ran `bun run lint` -> clean (no errors/warnings in active src)
+    26→- Ran `bun run db:push` -> database already in sync, Prisma Client regenerated
+    27→- Dev server (already running on port 3000) auto-recompiled: `✓ Compiled in 5.5s`, `GET / 200`
+    28→
+    29→Stage Summary:
+    30→- Ndayeni Solutions website fully migrated into the active project and running on port 3000.
+    31→- Tech: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui + Prisma SQLite + three.js (3D hero) + GSAP (animations) + framer-motion + nodemailer (contact form).
+    32→- Contact form runs in Ethereal test mode by default (no SMTP creds in .env); falls back gracefully. To enable real email, add SMTP_HOST/SMTP_USER/SMTP_PASSWORD to .env.
+    33→- Original cloned repo preserved at /home/z/my-project/Ndayeni-Solutions/ for reference (excluded from lint/build).
+    34→- Remaining: Agent Browser end-to-end verification (render + hero 3D + contact form + sticky footer + responsive).
+    35→
+    36→---
+    37→Task ID: migrate-ndayeni-verify
+    38→Agent: main
+    39→Task: Agent Browser end-to-end self-verification of the migrated Ndayeni Solutions site.
+    40→
+    41→Work Log:
+    42→- Opened http://localhost:3000 via agent-browser; page title = "Ndayeni Solutions | Reliable IT & Web Solutions in Midrand"
+    43→- Checked page errors: NONE (empty). Console only showed benign warnings (React DevTools prompt, HMR connected, framer-motion scroll-position hint, THREE.Clock deprecation).
+    44→- Captured accessibility tree (depth 4): confirmed ALL 6 sections render populated:
+    45→  - Navbar (logo + 5 nav links + Get Started CTA)
+    46→  - Hero (H1 "Reliable IT & Web Solutions for Your Home & Business", 2 CTAs, 3 stats: 50+/500+/100+)
+    47→  - Services (6 cards: Web Design & SEO, IT Outsourcing, IT Technical Support, Graphic Design, Computer Repairs, Digital Skills Training)
+    48→  - About (H2 + H3 "Technology Should Empower, Not Frustrate." + 6 features + counters + Work With Us CTA)
+    49→  - Contact (4 info links + form: name/email/phone/service-select(7 options)/message + Send Message)
+    50→  - Footer (logo, tagline, contact links, Quick Links, Services list)
+    51→- Contact form golden path (browser): filled name/email/phone/message, selected "Web Design & SEO", clicked Send Message. Success UI rendered: "Test mode active / Your message was captured by the test mail server. View the email preview → / Message sent — we'll be in touch".
+    52→- Contact API verified via curl: GET /api/contact → {ok:true,...}; POST → {ok:true,mode:"test",previewUrl:"https://ethereal.email/message/..."}.
+    53→- Dev log confirms 3x POST /api/contact 200 with Ethereal test emails captured; no 500s, no exceptions.
+    54→- Mobile responsive (390x844): navbar collapsed to hamburger "Open menu"; mobile nav sheet opened with all 5 links.
+    55→- Sticky footer layout verified via eval: root has `min-h-screen flex flex-col`, main has `flex-1`, footer present, docHeight(7644) > viewportHeight(844) → footer pushed down naturally (no overlap, no floating gap).
+    56→
+    57→Stage Summary:
+    58→- Site is fully functional and browser-verified. Golden path (contact form → API → email capture) works end-to-end. Responsive + sticky footer confirmed. Dev server healthy on port 3000. Migration COMPLETE.
+    59→
+    60→---
+    61→Task ID: REBUILD-WHY
+    62→Agent: general-purpose
+    63→Task: Recreate WhyNdayeni.tsx component
+    64→
+    65→Work Log:
+    66→- Read /home/z/my-project/worklog.md to recover project context (Next.js 16 + React 19 + Tailwind 4 + shadcn/ui + GSAP + Prisma; Ndayeni Solutions site migrated from Ndayeni-Solutions repo into active project on port 3000).
+    67→- Inspected sibling components for design conventions: src/components/ndayeni/Services.tsx (GSAP header + staggered cards pattern, Card + CardContent usage, hover:-translate-y-1 group card pattern, top accent bar) and src/components/ndayeni/About.tsx (mesh-gradient bg + blurred orbs pattern, ScrollTrigger.create + once:true + cleanup pattern, `.value-item` / `.stat-card` style class-targeted stagger).
+    68→- Inspected src/components/ui/card.tsx to confirm Card / CardContent export surface and that arbitrary Tailwind classes (e.g. `bg-dark-card/80`, `border-dark-border/50`, `hover:border-brand/40`) are passed through `cn(...)` correctly.
+    69→- Created /home/z/my-project/src/components/ndayeni/WhyNdayeni.tsx implementing:
+    70→  - "use client" directive.
+    71→  - Imports: gsap, ScrollTrigger (with `if (typeof window !== "undefined")` register guard), `type LucideIcon` from lucide-react, icons { Wrench, Boxes, MapPin, Store, LifeBuoy, ArrowRight }, shadcn Card + CardContent, Button.
+    72→  - `SellingPoint` type (`icon: LucideIcon; title: string; description: string`) — no `any` used anywhere.
+    73→  - 5 selling points array (Practical Solutions, One Technology Partner, Local Support, Small Business Focus, Ongoing Support) with exact copy specified.
+    74→  - `sectionRef` (`<section id="why" aria-labelledby="why-ndayeni-heading" className="relative py-12 sm:py-20 md:py-28">`).
+    75→  - Decorative bg: `<div className="absolute inset-0 mesh-gradient" aria-hidden="true" />` + 2 blurred orbs (`bg-brand/4` top-left, `bg-accent/3` bottom-right, both `rounded-full blur-[120px]`).
+    76→  - Centered header (eyebrow `text-accent`, H2 with `text-warm-white` + `text-gradient-brand` split, `text-text-muted max-w-2xl mx-auto` subtitle), with matching `id="why-ndayeni-heading"` on the H2.
+    77→  - GSAP header fade: `gsap.set(el,{opacity:0,y:30})` then `ScrollTrigger.create({trigger,start:"top 85%",once:true,onEnter:gsap.to({opacity:1,y:0,duration:0.8,ease:"power3.out"})})` + `trigger.kill()` cleanup.
+    78→  - Cards wrapped in a `cardsRef` div; GSAP stagger targets `.why-card` querySelectorAll: `gsap.set(items,{opacity:0,y:40})` then `gsap.to(items,{opacity:1,y:0,duration:0.5,stagger:0.1,ease:"power3.out"})` on `start:"top 80%"`.
+    79→  - Row 1: `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6` (first 3 cards).
+    80→  - Row 2: `max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5` (last 2 cards centered).
+    81→  - Each card: shadcn `Card` with `h-full bg-dark-card/80 backdrop-blur-sm border-dark-border/50 hover:border-brand/40 transition-all duration-500 hover:-translate-y-1 group overflow-hidden`, top accent bar `<div className="h-[2px] bg-gradient-to-r from-brand to-brand-light opacity-30 group-hover:opacity-80 transition-opacity duration-500" />`, icon in `bg-brand/10` rounded-2xl square (group-hover:scale-110), title `text-warm-white font-bold text-lg` (group-hover:text-brand), description `text-text-muted text-sm leading-relaxed`.
+    82→  - Bottom CTA band exactly as specified (paragraph + `bg-gradient-to-r from-brand to-brand-light` Button linking to #contact with ArrowRight that translates on hover).
+    83→  - Mobile-first responsive, all decorative elements `aria-hidden="true"`, semantic section with `aria-labelledby`.
+    84→- Verified: `bunx tsc --noEmit` shows ZERO errors in WhyNdayeni.tsx (pre-existing errors elsewhere — HeroScene.tsx, contact/route.ts, cloned Ndayeni-Solutions repo, skills examples — are unchanged). `bun run lint` clean (no errors/warnings).
+    85→
+    86→Stage Summary:
+    87→- Recreated /home/z/my-project/src/components/ndayeni/WhyNdayeni.tsx as a fully-typed, GSAP-animated, accessible, mobile-first "Why Ndayeni?" section ready to be imported into src/app/page.tsx (e.g. between Hero/Services and About) when the page composition is restored.
+    88→- Follows all site conventions established by Services.tsx / About.tsx (dark theme palette, glass cards, ScrollTrigger animations, lucide icons, shadcn Card/Button).
+    89→- No type errors, no lint errors in the new file. Component is self-contained and does not require any new dependencies.
+    90→- Next action (out of scope for this task): import `<WhyNdayeni />` into src/app/page.tsx and optionally add a `<SectionDivider variant="brand|accent|mixed" />` before it for visual continuity.
+    91→
+    92→---
+    93→Task ID: REBUILD-BIZ
+    94→Agent: general-purpose
+    95→Task: Recreate BusinessSolutions.tsx component
+    96→
+    97→Work Log:
+    98→- Read /home/z/my-project/worklog.md to recover project context (prior migration + verification of Ndayeni Solutions site).
+    99→- Inspected reference patterns: src/components/ndayeni/Services.tsx (GSAP + ScrollTrigger + Card + Button usage), src/components/ui/button.tsx (variants), src/components/ui/card.tsx (Card/CardContent API).
+   100→- Confirmed design-system tokens exist in src/app/globals.css (text-gradient-brand, mesh-gradient, glow-brand, etc.).
+   101→- Created /home/z/my-project/src/components/ndayeni/BusinessSolutions.tsx implementing:
+   102→  * "use client" directive, TypeScript strict (no `any`), `type LucideIcon` import for icon typing.
+   103→  * Discriminated `SolutionCta` type: `variant: "gradient" | "outline"` (each branch carries only the className tokens it needs).
+   104→  * `Solution` type with icon, title, tag, accent gradient, accentBg, accentText, intro, bullets[], cta.
+   105→  * 3 solution cards (New Office Setup / Small Business IT Support / Home Technology Setup) with exact content, icons (Building2, LifeBuoy, Home), bullet lists, and CTAs matching the spec.
+   106→  * Each card: Card with `solution-card` class, top accent bar (h-[2px] gradient, opacity-30 → group-hover:opacity-80), CardContent p-5 sm:p-6 lg:p-8, icon in rounded-2xl tinted square (w-12 h-12 sm:w-14 sm:h-14), scenario tag (text-[10px] uppercase tracking-wider), title (text-warm-white font-bold text-lg sm:text-xl), intro (text-text-muted text-sm), bullet list (space-y-2 mt-4 with Check icon in colored circle), full-width CTA.
+   107→  * CTAs: Card 1 gradient (from-brand to-brand-light text-dark-deep), Cards 2 & 3 outline (accent / brand-light). Each CTA is `<a href="#contact">` wrapping `<Button>` with min-h-[44px] touch target.
+   108→  * Background: absolute inset-0 with gradient from-dark-deep via-dark-surface/30 to-dark-deep + brand/4 glow (top-right) + accent/3 glow (bottom-left).
+   109→  * Header: eyebrow "Business Solutions", H2 with text-gradient-brand "Real Situations", muted subtitle.
+   110→  * Bottom note: "Not sure which one fits? Tell us what you need…" link → #contact.
+   111→  * GSAP: header uses gsap.set opacity:0 y:30 + ScrollTrigger "top 85%" once → fade/rise 0.8s power3.out. Cards use gsap.set on `.solution-card` (opacity 0, y 30) + ScrollTrigger "top 80%" once → staggered gsap.to (duration 0.5, stagger 0.1). Cleanup kills all triggers.
+   112→  * Accessibility: semantic `<section id="solutions" aria-label="Business Solutions">`, aria-hidden on decorative icons/divs, aria-label on CTA anchors, 44px min touch targets, focus-visible styling inherited from Button.
+   113→- Ran `bun run lint` → clean (no errors/warnings from active src/).
+   114→- Ran `bunx tsc --noEmit` → no TypeScript errors in BusinessSolutions.tsx (pre-existing errors in unrelated files: Ndayeni-Solutions/examples, skills/, src/app/api/contact/route.ts, HeroScene.tsx).
+   115→
+   116→Stage Summary:
+   117→- /home/z/my-project/src/components/ndayeni/BusinessSolutions.tsx created and verified (lint clean, types clean).
+   118→- Component follows the Ndayeni dark-themed design system exactly (bg-dark-card/80, border-dark-border/50, text-gradient-brand, bg-brand/accent glows) and the project's GSAP + shadcn Card/Button patterns established in Services.tsx.
+   119→- Component is not yet wired into src/app/page.tsx — a follow-up task should import and place `<BusinessSolutions />` (e.g. between Services and About) if it should appear in the rendered page.
+   120→
+   121→---
+   122→Task ID: REBUILD-CARE
+   123→Agent: general-purpose
+   124→Task: Recreate CarePlans.tsx component
+   125→
+   126→Work Log:
+   127→- Read /home/z/my-project/worklog.md (contained prior migration + verification records; no prior REBUILD-CARE entry).
+   128→- Inspected existing patterns: src/components/ndayeni/Services.tsx (GSAP + shadcn Card/Button/Badge usage), About.tsx (header ScrollTrigger pattern), and the design-system utility classes in src/app/globals.css (confirmed presence of mesh-gradient, glow-brand, animate-float, animate-float-slow, text-gradient-brand, text-gradient-accent).
+   129→- Reviewed shadcn ui primitives: button.tsx (variants: default/outline/ghost/secondary/...), card.tsx (Card + CardContent, default `flex flex-col gap-6 py-6`), badge.tsx.
+   130→- Created /home/z/my-project/src/components/ndayeni/CarePlans.tsx with:
+   131→  - "use client" directive, GSAP ScrollTrigger registration guarded for SSR.
+   132→  - Typed `Plan` interface + `LucideIcon`-typed icon field (no `any`).
+   133→  - 3 plan cards: Basic (User icon, brand-light accent), Business FEATURED (Building2 icon, brand accent, border-brand/40 + glow-brand + lg:scale-[1.03] + "Most Popular" Badge), Business Plus (Server icon, teal/accent accent).
+   134→  - Section #care-plans, mesh-gradient bg + 2 floating decorative shapes, centered GSAP-animated header (eyebrow "Ndayeni Care Plans", gradient H2 "Ongoing IT Support Plans", subtitle), 1/2/3-col responsive grid, pricing area with "Pricing on request" + "Based on your setup & number of devices" note (no prices published), full-width min-h-[44px] CTAs per card, bottom CTA band with gradient button.
+   135→  - GSAP: header fade-up on scroll (opacity/y, power3.out, 0.8s), plan cards stagger via .plan-card selector (opacity/y, 0.5s, stagger 0.12).
+   136→  - Business Plus included item framed as "Critical system monitoring" (NOT "24/7 support") per requirement.
+   137→  - Accessibility: aria-labelledby on section, aria-hidden on decorative shapes/icons, 44px touch targets via min-h-[44px], semantic heading hierarchy.
+   138→- Verified: `bunx tsc --noEmit --skipLibCheck` shows ZERO errors attributable to CarePlans.tsx (all reported errors are pre-existing in Ndayeni-Solutions clone, examples/, skills/, src/app/api/contact/route.ts, src/components/ndayeni/HeroScene.tsx). `bun run lint` clean for CarePlans.tsx.
+   139→
+   140→Stage Summary:
+   141→- CarePlans.tsx recreated at /home/z/my-project/src/components/ndayeni/CarePlans.tsx (~265 lines).
+   142→- Strict TypeScript (LucideIcon + Plan interface, no any), passes tsc + eslint.
+   143→- Follows site design system exactly (dark palette, glass surfaces, mesh-gradient bg, glow-brand on featured card, gradient text, animate-float decorations).
+   144→- Middle "Business" card visually elevated: persistent border-brand/40, glow-brand box-shadow, lg:scale-[1.03], "Most Popular" Badge floating at top edge.
+   145→- Prices intentionally omitted — only "Pricing on request / Based on your setup & number of devices".
+   146→- Ready to be imported into src/app/page.tsx (e.g. <CarePlans /> between Services and About, or wherever the layout calls for it). Not yet wired into page.tsx — that integration step is out of scope for this rebuild task.
+   147→
+   148→---
+   149→Task ID: REBUILD-ALL
+   150→Agent: main
+   151→Task: Full rebuild after environment reset. Redo ALL changes up to the last working point, including images and SMTP. Set up safeguards to prevent future loss.
+   152→
+   153→Work Log:
+   154→- Confirmed environment had reset to original migration state (Sep 2) — all today's work gone (components, images, .env, worklog entries)
+   155→- Launched 3 parallel subagents to recreate WhyNdayeni, BusinessSolutions, CarePlans components
+   156→- Directly rewrote: Navbar (nav links + Request a Quote CTA + z-[60] mobile fix + removed stuck GSAP animation + pointerEvents fix), Hero (two-column layout with What We Handle panel + trust badges), Services (8 services in 3 category accordions, single-open, image header cards), About (grounded founder story + 4-step process Assess/Recommend/Install/Support + updated stats/values), Contact (smart form with customerType radio incl Home/Individual + 10 interest checkboxes), Footer (updated service links + tagline), layout.tsx (metadata + JSON-LD + phone 083 800 6989), page.tsx (new section order, no Projects)
+   157→- Added CSS utilities to globals.css: .section-bg-image, .section-bg-overlay, .card-image-header (visible image band)
+   158→- Added .text-gradient-teal class (was missing from original, caused invisible hero text)
+   159→- Searched 12 image categories via z-ai image-search, downloaded candidates, VLM-verified EACH image for watermarks
+   160→- Found that even "Unsplash"-sourced images sometimes carry "Unsplash+" premium watermark — verified each individually
+   161→- Final 13 VLM-confirmed watermark-free images: abstract, cctv, repairs, network, techhelp, techtheme, workspace, printer, webdesign, graphicdesign, training, office, home
+   162→- Created src/lib/section-images.ts config pointing all components to verified clean images
+   163→- Integrated images: Hero bg (abstract), WhyNdayeni bg (techhelp), Services category headers + 8 service cards (image header bands), BusinessSolutions 3 cards (office/itsupport/home), CarePlans bg (itsupport), About bg (techtheme), Contact bg (workspace)
+   164→- Re-setup SMTP .env: mail.ndayenisolutions.co.za:587 (the ACTUAL mail server, not smtp.afrihost.co.za which refused STARTTLS). Tested live: mode=production, email sent attempt 1, delivered to info@ndayenisolutions.co.za
+   165→- SAFEGUARD: git rm --cached .env (untrack credentials), confirmed .env in .gitignore, git add -A + commit (85a57ae). .env file remains on disk (perms 600) but is NOT tracked by git — credentials protected
+   166→- Agent Browser verification:
+   167→  - Desktop 1440px: 0 errors, all 7 sections (home/why/services/solutions/care-plans/about/contact), all headings correct, phone 083 800 6989, 11 card images + 5 bg images all loaded ✓
+   168→  - Mobile 390px: navbar at top:0 (visible), burger opens + closes via X, contact radio "Home/Individual" label ✓
+   169→  - SMTP: live test returned {"ok":true,"mode":"production"}, email delivered ✓
+   170→
+   171→Stage Summary:
+   172→- FULL REBUILD COMPLETE. Everything from the lost session is restored: 15 recommendations, Services accordion, Hero two-column, mobile menu fix, 13 VLM-verified watermark-free images, smart contact form, SMTP email delivery (production mode confirmed).
+   173→- SAFEGUARD IN PLACE: All work committed to git (commit 85a57ae). .env untracked + gitignored (credentials protected). A future environment reset can be recovered with `git checkout .` or `git reset --hard 85a57ae`.
+   174→
+   175→---
+   176→Task ID: TRUST-1
+   177→Agent: general-purpose
+   178→Task: Create TrustSignals.tsx component (POPIA compliance + security signals)
+   179→
+   180→Work Log:
+   181→- Read /home/z/my-project/worklog.md to recover project context (Ndayeni Solutions migration + WhyNdayeni / BusinessSolutions / CarePlans rebuilds + full REBUILD-ALL with images, SMTP, git commit 85a57ae).
+   182→- Inspected sibling components for design + GSAP conventions: src/components/ndayeni/WhyNdayeni.tsx (ScrollTrigger.create + once:true + trigger.kill() cleanup pattern, `.why-card` selector stagger) and src/components/ndayeni/CarePlans.tsx (LucideIcon typing, "use client" + window-guard plugin register).
+   183→- Confirmed page.tsx imports CarePlans + About at lines 8-9 and renders them at lines 28/30 (TrustSignals will slot between them when integrated).
+   184→- Created /home/z/my-project/src/components/ndayeni/TrustSignals.tsx implementing:
+   185→  - "use client" directive at top.
+   186→  - Imports: `useRef, useEffect` from react; `type LucideIcon` + `ShieldCheck, Lock, FileCheck, BadgeCheck` from lucide-react; `gsap` + `ScrollTrigger` with `if (typeof window !== "undefined")` register guard.
+   187→  - `TrustSignal` type (icon: LucideIcon; title: string; description: string; iconText: string) — no `any` used anywhere.
+   188→  - `trustSignals` array with the 4 exact items: POPIA Compliant (ShieldCheck, text-brand), Secure by Default (Lock, text-accent), SLA-Backed Support (FileCheck, text-brand-light), Verified & Insured (BadgeCheck, text-brand) — exact copy verbatim.
+   189→  - `<section id="trust" ref={sectionRef} aria-label="Trust & compliance signals" className="relative py-10 sm:py-14">` — compact strip, no header.
+   190→  - Background: `<div className="absolute inset-0 bg-dark-surface/50" aria-hidden="true" />` + top and bottom gradient borders (`h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent`, both aria-hidden).
+   191→  - Inner container `relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8` wrapping a `grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4` (2x2 mobile, 1x4 desktop).
+   192→  - Each badge is a `<div className="trust-badge glass rounded-xl p-4 sm:p-5 border-brand/10">` containing: icon in `w-10 h-10 rounded-lg bg-brand/10 flex items-center justify-center mb-2.5`, title `text-warm-white font-semibold text-xs sm:text-sm`, description `text-text-muted text-[10px] sm:text-xs leading-tight mt-1`.
+   193→  - GSAP: useEffect with `gridRef`, `gsap.set(items, { opacity: 0, y: 24 })` then `ScrollTrigger.create({ start: "top 85%", once: true, onEnter: gsap.to({ opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: "power3.out" }) })` targeting `.trust-badge` elements via `querySelectorAll<HTMLElement>`. Cleanup returns `trigger.kill()`.
+   194→  - Accessibility: semantic section with `aria-label`, `aria-hidden="true"` on background surface + gradient borders + decorative icons, headings use `<h3>` for proper hierarchy within the strip.
+   195→- Verified: `bunx tsc --noEmit --skipLibCheck` reports ZERO errors mentioning TrustSignals (pre-existing unrelated errors elsewhere unchanged). `bun run lint` → clean, no errors/warnings.
+   196→
+   197→Stage Summary:
+   198→- /home/z/my-project/src/components/ndayeni/TrustSignals.tsx created (~135 lines), fully-typed, GSAP-animated, accessible, mobile-first.
+   199→- Compact trust/compliance strip with 4 glass badges (POPIA Compliant, Secure by Default, SLA-Backed Support, Verified & Insured) following the exact design system (bg-dark-surface/50, glass + border-brand/10, text-brand/accent/brand-light icons, 2-col mobile → 4-col sm).
+   200→- Passes tsc + eslint. Self-contained, no new dependencies, no `any`.
+   201→- Ready to be wired into src/app/page.tsx between `<CarePlans />` and `<About />` (or right before the footer) — integration step is out of scope for this component task.
+   202→
+   203→---
+   204→Task ID: TESTIMONIALS-1
+   205→Agent: general-purpose
+   206→Task: Create Testimonials.tsx component
+   207→
+   208→Work Log:
+   209→- Read /home/z/my-project/worklog.md to recover project context (Ndayeni Solutions migrated into active Next.js 16 project on port 3000; site stack = Next.js 16 + React 19 + Tailwind 4 + shadcn/ui + GSAP/ScrollTrigger + Prisma; dark theme with brand-blue/accent-teal palette defined in src/app/globals.css).
+   210→- Inspected sibling components for design conventions: src/components/ndayeni/About.tsx (mesh-gradient bg + 2 blurred orbs pattern, ScrollTrigger.create + once:true + trigger.kill() cleanup, .value-card staggered querySelectorAll pattern, glass card + gradient-text header) and src/components/ui/card.tsx (Card + CardContent exports, arbitrary Tailwind classes pass through cn()).
+   211→- Created /home/z/my-project/src/components/ndayeni/Testimonials.tsx implementing:
+   212→  * "use client" directive at top.
+   213→  * Imports: useRef/useEffect from react, Quote + Star from lucide-react, Card + CardContent from @/components/ui/card, gsap + ScrollTrigger (registration guarded with `if (typeof window !== "undefined")`).
+   214→  * Strict TypeScript: typed `Testimonial` interface ({ name, role, location, quote, initial }) — no `any` used anywhere.
+   215→  * PLACEHOLDER comment immediately above the testimonials array: `// PLACEHOLDER TESTIMONIALS — replace with real client reviews when available.`
+   216→  * 3 testimonials (Thabo M. / Sarah N. / David K.) with exact copy, role, location and first-initial avatar (T, S, D) per spec.
+   217→  * `<section id="testimonials" aria-labelledby="testimonials-heading" className="relative py-12 sm:py-20 md:py-28">` (semantic + accessible).
+   218→  * Background: `<div className="absolute inset-0" aria-hidden="true">` wrapping mesh-gradient + 2 decorative blurred orbs (top-left `bg-brand/4`, bottom-right `bg-accent/3`, both `rounded-full blur-[120px]`).
+   219→  * Centered GSAP-animated header (headerRef): eyebrow `text-brand text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3 sm:mb-4 block` "Client Feedback"; H2 with `text-warm-white` "What Clients " + `text-gradient-brand` "Say About Us" (id="testimonials-heading"); subtitle `text-text-muted max-w-2xl mx-auto` with exact copy.
+   220→  * Cards grid (cardsRef): `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6`.
+   221→  * Each card: shadcn `Card` with `testimonial-card h-full bg-dark-card/80 backdrop-blur-sm border-dark-border/50 hover:border-brand/40 transition-all duration-500 hover:-translate-y-1 group` (exact className from spec).
+   222→  * Each card body: CardContent `p-5 sm:p-6 lg:p-8` containing Quote icon (`text-brand/30 w-10 h-10 mb-4`), 5 gold stars (Star `w-4 h-4 text-yellow-400 fill-yellow-400`) inside a flex with role="img" aria-label="5 out of 5 stars", italic blockquote text `text-warm-white/90 text-sm sm:text-base leading-relaxed italic mb-5`, divider `h-px bg-dark-border/30 mb-4`, author row (avatar circle w-10 h-10 rounded-full bg-gradient-to-br from-brand to-brand-light with first initial; name `text-warm-white font-semibold text-sm`; role+location `text-text-muted text-xs`).
+   223→  * Bottom Google rating badge row: exactly as specified — glass pill with 5 stars, "4.9 / 5" + "from 40+ reviews" + "Leave us a review on Google →" tagline, responsive flex-col sm:flex-row.
+   224→  * GSAP animations: header fade-up via gsap.set opacity:0 y:30 + ScrollTrigger.create({trigger, start:"top 85%", once:true, onEnter:gsap.to opacity:1 y:0 duration:0.8 ease:"power3.out"}); cards staggered via gsap.set on `.testimonial-card` (opacity:0 y:40) + ScrollTrigger start:"top 80%" once → gsap.to duration:0.5 stagger:0.1 ease:"power3.out"; both cleaned up via trigger.kill() in useEffect return.
+   225→  * All decorative elements marked aria-hidden="true"; avatar decorative; section uses aria-labelledby.
+   226→  * Mobile-first responsive throughout (sm:, lg: breakpoints).
+   227→- Verified: `bunx tsc --noEmit` reports ZERO TypeScript errors attributable to Testimonials.tsx (pre-existing errors in unrelated files unchanged). `bun run lint` clean (no errors/warnings).
+   228→
+   229→Stage Summary:
+   230→- /home/z/my-project/src/components/ndayeni/Testimonials.tsx created (~210 lines), passes TypeScript strict + ESLint clean.
+   231→- Component follows the Ndayeni dark-themed design system exactly (bg-dark-card/80, border-dark-border/50, text-gradient-brand, mesh-gradient + bg-brand/bg-accent blurred orbs, glass class on rating badge) and the project's GSAP + shadcn Card patterns established in About.tsx / Services.tsx.
+   232→- 3 PLACEHOLDER testimonials with realistic copy and a clearly marked placeholder comment per spec — ready to be swapped for real client reviews when available.
+   233→- Bottom trust element (Google rating badge) rendered exactly as specified.
+   234→- Component is self-contained and does not require any new dependencies.
+   235→- Next action (out of scope for this task): import `<Testimonials />` into src/app/page.tsx (e.g. after BusinessSolutions / CarePlans and before About, or wherever social proof should appear) when the page composition is updated.
+   236→
+   237→---
+   238→Task ID: SMS-API
+   239→Agent: general-purpose (sub agent)
+   240→Task: Build SMS API routes for the Ndayeni Solutions Digital Academy Student Management System (8 route files: students, courses, attendance, assessments, certificate, audit, reports, users).
+   241→
+   242→Work Log:
+   243→- Read worklog.md, prisma/schema.prisma, src/lib/academy-auth.ts, src/lib/academy-session.ts, src/lib/db.ts, and existing routes (login, apply, students, users, certificate) to ground the implementation in the actual schema and helper APIs.
+   244→- Prisma models confirmed: AcademyUser, Student, Course, Module, Attendance, Assessment, Certificate, AuditLog (SQLite datasource).
+   245→
+   246→Files created / updated (all routes use `export const dynamic = "force-dynamic"`, `import { db } from "@/lib/db"`, `import { getSession } from "@/lib/academy-session"`, and return JSON `{ ok: boolean, ... }`):
+   247→
+   248→1. UPDATED src/app/api/academy/students/route.ts
+   249→   - GET: list students with search (q param matches fullName / email / studentNumber / applicationRef / phone via Prisma `contains` — SQLite is case-insensitive for ASCII LIKE) and filters (status, courseId).
+   250→   - POST actions:
+   251→     - "create": manually create a student (requires fullName, email, program).
+   252→     - "update": update any student field (personal, course, education, kin, enrolment, notes, status, progress). Status-driven timestamps (enrolledAt, completedAt) applied automatically.
+   253→     - "delete": super/admin only, deletes student (AuditLog.studentId set to null because the FK cascade is SetNull — we pass null and store the deleted student info in `details`).
+   254→     - "convert": converts an "accepted" application → "enrolled" student, generating studentNumber `NSA-YYYY-NNNN` via a count-based sequence.
+   255→   - Wrote an AuditLog entry on every create/update/delete/convert. On status change, a dedicated `student.status_change` audit is logged showing the from→to transition.
+   256→   - Role gating: write actions require `super | admin | admissions | training`; delete additionally requires `super | admin`.
+   257→
+   258→2. CREATED src/app/api/academy/courses/route.ts
+   259→   - GET: list all courses with their modules (`include: { modules: { orderBy: { order: "asc" } } }`). Optional `?active=true` filter.
+   260→   - POST actions (super/admin only):
+   261→     - "create": create a course — enforces unique `code`, requires code/title/description.
+   262→     - "update": update any course field (code, title, description, duration, deliveryMethod, entryRequirements, fee, maxStudents, active).
+   263→     - "delete": delete a course (cascade-deletes its modules via Prisma relation onDelete: Cascade).
+   264→     - "addModule": add a module to a course (requires courseId, title; optional description/duration/order/learningObjectives/active).
+   265→     - "updateModule": update a module by id.
+   266→     - "deleteModule": delete a module by id.
+   267→
+   268→3. CREATED src/app/api/academy/attendance/route.ts
+   269→   - GET (auth): list attendance filtered by `?studentId=` and/or `?date=YYYY-MM-DD` (uses a gte/lte DateTime range for the day, UTC). Includes the related student (id, fullName, studentNumber, email) for display.
+   270→   - POST (auth, super/admin/training): create or update an attendance record. Validates `status` against present|absent|excused. Upsert logic: finds the existing record for the same student+day (no unique constraint in schema, so a manual findFirst) and updates it; otherwise creates. Date stored at the start of the day (UTC).
+   271→
+   272→4. CREATED src/app/api/academy/assessments/route.ts
+   273→   - GET (auth): list assessments filtered by `?studentId=`. Includes related student (id, fullName, studentNumber, email). Ordered by date desc.
+   274→   - POST (auth, super/admin/training): create or update an assessment. Validates `result` against pass|not-yet-competent. If `id` is provided → update existing (only the supplied fields are changed). Otherwise create new (requires studentId, moduleTitle, result; optional date, mark, comments).
+   275→
+   276→5. UPDATED src/app/api/academy/certificate/route.ts
+   277→   - GET (PUBLIC, no auth): view a certificate by `?id=` OR `?certificateNumber=`. Returns the certificate or 404.
+   278→   - POST (auth, super/admin/admissions):
+   279→     - Default "issue" action: issues a certificate for an existing student (studentId required). Defaults signedBy to "Nhlakanipho Ntshangase, Founder & CEO". Sets student status=completed. Generates cert number `NSDA-YYYY-XXXXXX` (6 random alphanumeric chars). Logs `certificate.issue` audit entry. Returns `{ ok: true, certificate, alreadyExists: true }` if a cert already exists for the student.
+   280→     - action="manual": manually issue a certificate for a past student (fullName + programName required; optional issueDate, signedBy, studentId, email). Find-or-create student (tries existing studentId, then matches by fullName contains, otherwise creates a minimal "completed" student record). Honors an explicit issueDate. Logs `certificate.manual_issue` audit entry.
+   281→
+   282→6. CREATED src/app/academy/audit/route.ts  (path: /api/academy/audit)
+   283→   - GET (auth required): paginated audit logs. Query params: page (default 1), pageSize (default 50, capped at 100), action (substring match), studentId, userId. Returns `{ ok: true, logs, page, pageSize, total, totalPages }`. Uses Promise.all([count, findMany]) for efficiency.
+   284→
+   285→7. CREATED src/app/api/academy/reports/route.ts
+   286→   - GET (auth required): returns dashboard stats object with all 8 counts requested:
+   287→     - totalApplications: db.student.count() (every Student row originated from an application or manual entry)
+   288→     - pendingApplications: status in ["applied","under-review","info-required"]
+   289→     - acceptedApplications: status="accepted"
+   290→     - rejectedApplications: status="rejected"
+   291→     - enrolledStudents: status="enrolled"
+   292→     - activeStudents: status="active"
+   293→     - completedStudents: status="completed"
+   294→     - certificatesIssued: db.certificate.count()
+   295→   - All 8 counts run in parallel via Promise.all.
+   296→
+   297→8. UPDATED src/app/api/academy/users/route.ts
+   298→   - Preserved existing GET (list users, returns public fields only), POST (create user, super only), DELETE (delete user, super only, cannot delete self).
+   299→   - Added `active` to the public user fields selector (was previously omitted — schema has `active Boolean @default(true)`).
+   300→   - Refactored POST to dispatch on `action`:
+
+[showing lines 1-300 of 358; use offset=301 with limit to continue reading]

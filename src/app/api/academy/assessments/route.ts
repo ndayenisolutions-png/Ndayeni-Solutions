@@ -11,14 +11,90 @@ function canWrite(session: SessionPayload | null): boolean {
   return ["super", "admin", "training"].includes(session.role);
 }
 
-// ─── GET — list assessments for a student (?studentId=X) ───
+// ─── GET — list assessments for a student (?studentId=X) or gradebook matrix (?courseId=X) ───
 export async function GET(req: NextRequest) {
   const session = getSession(req);
   if (!session) return NextResponse.json({ ok: false, error: "Not authenticated." }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const studentId = searchParams.get("studentId");
+  const courseId = searchParams.get("courseId");
 
+  // ── gradebook matrix (?courseId=X) ──
+  if (courseId) {
+    const course = await db.course.findUnique({
+      where: { id: courseId },
+      include: { modules: { where: { active: true }, orderBy: { order: "asc" } } },
+    });
+    if (!course) return NextResponse.json({ ok: false, error: "Course not found." }, { status: 404 });
+
+    const students = await db.student.findMany({
+      where: { courseId, status: { in: ["enrolled", "active", "completed"] } },
+      orderBy: { fullName: "asc" },
+      select: { id: true, fullName: true, studentNumber: true, email: true, status: true, progress: true },
+    });
+
+    const studentIds = students.map((s) => s.id);
+    const assessments =
+      studentIds.length > 0
+        ? await db.assessment.findMany({ where: { studentId: { in: studentIds } } })
+        : [];
+
+    // Build a matrix keyed by module title; latest assessment wins when duplicates exist
+    const moduleTitles = course.modules.map((m) => m.title);
+    const moduleTitleSet = new Set(moduleTitles);
+
+    const matrix = students.map((student) => {
+      // Latest-first ordering so the first occurrence wins in the dedupe pass below
+      const studentAssessments = assessments
+        .filter((a) => a.studentId === student.id && moduleTitleSet.has(a.moduleTitle))
+        .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+      const cells: Record<
+        string,
+        { result: string; mark: string | null; date: string; comments: string | null } | null
+      > = {};
+      for (const title of moduleTitles) cells[title] = null;
+
+      const seen = new Set<string>();
+      for (const a of studentAssessments) {
+        if (seen.has(a.moduleTitle)) continue;
+        seen.add(a.moduleTitle);
+        cells[a.moduleTitle] = {
+          result: a.result,
+          mark: a.mark,
+          date: a.date.toISOString(),
+          comments: a.comments,
+        };
+      }
+
+      return { student, cells };
+    });
+
+    // Summary stats: pass-rate is competent cells / total cells (0–100)
+    const totalStudents = students.length;
+    const totalModules = course.modules.length;
+    const totalCells = totalStudents * totalModules;
+    let competentCells = 0;
+    for (const row of matrix) {
+      for (const title of moduleTitles) {
+        const cell = row.cells[title];
+        if (cell && cell.result === "pass") competentCells++;
+      }
+    }
+    const passRate = totalCells > 0 ? Math.round((competentCells / totalCells) * 100) : 0;
+
+    return NextResponse.json({
+      ok: true,
+      course,
+      students,
+      modules: course.modules,
+      matrix,
+      summary: { totalStudents, totalModules, passRate, competentCells, totalCells },
+    });
+  }
+
+  // ── single-student list (?studentId=X) — existing behavior, unchanged ──
   const where: Record<string, unknown> = {};
   if (studentId) where.studentId = studentId;
 

@@ -48,8 +48,134 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { studentId, date, status, notes } = body;
+  const { action, studentId, date, status, notes } = body;
 
+  // ── bulk attendance capture (action: "bulk") ──
+  if (action === "bulk") {
+    const bulkDate = body.date;
+    const records = body.records;
+
+    // Validate date: must be a parseable YYYY-MM-DD string
+    if (
+      typeof bulkDate !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(bulkDate) ||
+      Number.isNaN(new Date(bulkDate).getTime())
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "A valid date (YYYY-MM-DD) is required." },
+        { status: 422 }
+      );
+    }
+
+    // Validate records is a non-empty array (max 200)
+    if (!Array.isArray(records) || records.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "records must be a non-empty array." },
+        { status: 422 }
+      );
+    }
+    if (records.length > 200) {
+      return NextResponse.json(
+        { ok: false, error: "records cannot exceed 200 entries." },
+        { status: 422 }
+      );
+    }
+
+    const validStatuses = ["present", "absent", "excused"];
+    const skipped: Array<{ studentId: string | null; reason: string }> = [];
+    const valid: Array<{ studentId: string; status: string; notes: string | null }> = [];
+
+    // Validate each record's studentId + status (skip + collect reasons)
+    for (const r of records) {
+      if (!r || typeof r.studentId !== "string" || !r.studentId) {
+        skipped.push({ studentId: null, reason: "studentId is required." });
+        continue;
+      }
+      if (typeof r.status !== "string" || !validStatuses.includes(r.status)) {
+        skipped.push({
+          studentId: r.studentId,
+          reason: `status must be one of: ${validStatuses.join(", ")}.`,
+        });
+        continue;
+      }
+      valid.push({
+        studentId: r.studentId,
+        status: r.status,
+        notes: typeof r.notes === "string" ? r.notes : null,
+      });
+    }
+
+    // Fetch all valid student IDs in one shot to validate existence
+    const validIds = valid.map((v) => v.studentId);
+    const existingStudents =
+      validIds.length > 0
+        ? await db.student.findMany({ where: { id: { in: validIds } }, select: { id: true } })
+        : [];
+    const existingIdsSet = new Set(existingStudents.map((s) => s.id));
+
+    // Split valid records into upserts vs skips (missing students)
+    const toUpsert: typeof valid = [];
+    for (const v of valid) {
+      if (!existingIdsSet.has(v.studentId)) {
+        skipped.push({ studentId: v.studentId, reason: "Student not found." });
+      } else {
+        toUpsert.push(v);
+      }
+    }
+
+    // Atomic bulk upsert within a transaction
+    let savedCount = 0;
+    let present = 0;
+    let absent = 0;
+    let excused = 0;
+    const dayStart = new Date(`${bulkDate}T00:00:00.000Z`);
+    const dayEnd = new Date(`${bulkDate}T23:59:59.999Z`);
+
+    if (toUpsert.length > 0) {
+      await db.$transaction(async (tx) => {
+        // Find existing records for these students on this date (no unique constraint, so manual dedupe)
+        const existing = await tx.attendance.findMany({
+          where: {
+            studentId: { in: toUpsert.map((v) => v.studentId) },
+            date: { gte: dayStart, lte: dayEnd },
+          },
+        });
+        const existingByStudent = new Map(existing.map((e) => [e.studentId, e.id]));
+
+        for (const v of toUpsert) {
+          const data = {
+            studentId: v.studentId,
+            date: dayStart,
+            status: v.status,
+            notes: v.notes,
+          };
+          const existingId = existingByStudent.get(v.studentId);
+          if (existingId) {
+            await tx.attendance.update({ where: { id: existingId }, data });
+          } else {
+            await tx.attendance.create({ data });
+          }
+          savedCount++;
+          if (v.status === "present") present++;
+          else if (v.status === "absent") absent++;
+          else if (v.status === "excused") excused++;
+        }
+
+        // Single audit log entry for the whole bulk operation
+        await tx.auditLog.create({
+          data: {
+            userId: session.userId,
+            action: "attendance.bulk",
+            details: `Bulk attendance for ${bulkDate}: ${savedCount} records (${present} present, ${absent} absent, ${excused} excused)`,
+          },
+        });
+      });
+    }
+
+    return NextResponse.json({ ok: true, saved: savedCount, skipped });
+  }
+
+  // ── single-record upsert (existing behavior, unchanged) ──
   if (!studentId || !date || !status) {
     return NextResponse.json(
       { ok: false, error: "studentId, date and status are required." },

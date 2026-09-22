@@ -147,6 +147,58 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, certificate: cert });
   }
 
+  // ── reissue: revoke an existing certificate and issue a new one ──
+  if (action === "reissue") {
+    // Only super/admin/admissions can reissue certificates
+    if (session.role !== "super" && session.role !== "admin" && session.role !== "admissions") {
+      return NextResponse.json({ ok: false, error: "Only super/admin/admissions roles can reissue certificates." }, { status: 403 });
+    }
+
+    const { certificateId, reason } = body as { certificateId?: string; reason?: string };
+    if (!certificateId) {
+      return NextResponse.json({ ok: false, error: "certificateId is required." }, { status: 422 });
+    }
+
+    const oldCert = await db.certificate.findUnique({ where: { id: certificateId } });
+    if (!oldCert) {
+      return NextResponse.json({ ok: false, error: "Certificate not found." }, { status: 404 });
+    }
+
+    // Revoke the OLD certificate — do NOT delete; keep the audit trail.
+    await db.certificate.update({
+      where: { id: certificateId },
+      data: { status: "revoked" },
+    });
+
+    // Generate a new certificate number and create a fresh active certificate
+    // for the same student, carrying over programName/studentName/idNumber/signedBy.
+    const newCertNumber = await generateCertNumber();
+    const newCert = await db.certificate.create({
+      data: {
+        studentId: oldCert.studentId,
+        programName: oldCert.programName,
+        studentName: oldCert.studentName,
+        idNumber: oldCert.idNumber,
+        issueDate: new Date(),
+        certificateNumber: newCertNumber,
+        signedBy: oldCert.signedBy,
+        status: "active",
+      },
+    });
+
+    // Audit log: record both the revocation reason and the new cert number.
+    await db.auditLog.create({
+      data: {
+        userId: session.userId,
+        studentId: oldCert.studentId,
+        action: "certificate.reissue",
+        details: `Reissued certificate ${oldCert.certificateNumber} → ${newCert.certificateNumber} for ${oldCert.studentName}. Reason: ${reason || "not specified"}`,
+      },
+    });
+
+    return NextResponse.json({ ok: true, certificate: newCert, oldCertificateNumber: oldCert.certificateNumber });
+  }
+
   // ── issue (default): issue a certificate for an existing student ──
   const { studentId, signedBy } = body;
   if (!studentId) return NextResponse.json({ ok: false, error: "studentId is required." }, { status: 422 });

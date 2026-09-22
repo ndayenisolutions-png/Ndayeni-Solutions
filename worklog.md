@@ -326,3 +326,322 @@ Next actions / integration handoff:
 - Frontend pages can now consume these endpoints directly. Recommended next step is wiring the admin dashboard pages (students table, course catalog, attendance/assessment capture, certificate viewer + manual issue form) to call these routes.
 - Consider adding a Prisma migration / db seed for sample courses & modules so the dashboard has data on first load.
 - (Optional) Tighten attendance upsert by adding a `@@unique([studentId, date])` constraint on the Attendance model in a future schema migration — current code does a manual `findFirst` to dedupe by day.
+
+---
+Task ID: SMS-POLISH-PLAN
+Agent: main
+Task: Plan + dispatch 11 SMS polish items (10 listed + welcome letter)
+
+Work Log:
+- Read worklog.md, prisma/schema.prisma, src/lib/academy-auth.ts, src/lib/academy-session.ts, src/app/api/academy/{students,certificate}/route.ts, src/app/training/admin/page.tsx (first 120 of 742 lines)
+- Confirmed existing SMS architecture:
+  * 11 route files under /api/academy/* (login, logout, apply, students, courses, attendance, assessments, certificate, audit, reports, users)
+  * Admin page at /training/admin/page.tsx uses `activeView` state with sidebar nav: dashboard, applications, students, courses, attendance, assessments, certificates, users, reports, settings
+  * shadcn/ui has sonner.tsx + toaster.tsx (toast infra ready), recharts installed, qrcode installed, nodemailer installed, all radix primitives present
+  * Prisma schema has Student/Course/Module/Attendance/Assessment/Certificate/AuditLog/AcademyUser — no schema changes needed for any polish item
+- Stage 1 plan: 6 parallel backend subagents (each owns distinct files, no overlap):
+  * SMS-BE-1: edit students/route.ts — add GET ?id=X profile detail (returns student + attendances + assessments + certificates + audit logs)
+  * SMS-BE-2: edit attendance/route.ts — add POST {action:"bulk"} + edit assessments/route.ts — add GET ?courseId=X gradebook matrix
+  * SMS-BE-3: edit certificate/route.ts — add POST {action:"reissue"} + edit reports/route.ts — add monthly trends
+  * SMS-BE-4: create auth/forgot-password/route.ts + auth/reset-password/route.ts (HMAC token, no schema change)
+  * SMS-BE-5: create export/route.ts (CSV for students/attendance/certificates)
+  * SMS-BE-6: install pdfkit + create welcome-letter/route.ts (real PDF download) — also wire into student convert action so the letter becomes available on enrolment
+- Stage 2 plan (after Stage 1, parallel frontend components in src/components/academy/*):
+  * StudentProfileModal, AttendanceBulkCapture, AssessmentGradebook, AuditLogViewer, UserManagementPanel, ReportsCharts, ForgotPasswordPage, CSVExportButtons, WelcomeLetterButton
+- Stage 3 plan: refactor admin/page.tsx — add new views to navItems, render new components, wire Sonner toasts in every CRUD handler
+- Stage 4: Agent Browser verify on /training/admin, fix issues, commit each milestone separately, push to git only when local tests pass
+
+Stage Summary:
+- Plan locked in. Dispatching Stage 1 (6 parallel backend subagents) now.
+- All subagents instructed to: read worklog.md first, append their entry after work, run tsc + lint at end, NOT touch admin/page.tsx or any file outside their assigned scope.
+- Existing work fully protected by git commit 7dc718f + isolation of new files.
+
+---
+Task ID: SMS-BE-1
+Agent: general-purpose (subagent)
+Task: Add GET ?id=X student profile detail endpoint with relations + computed fields
+
+Work Log:
+- Read /home/z/my-project/worklog.md (last 300 lines) to confirm prior agent work — file already had SMS-BE-* routes (students list/search/filter + POST create/update/delete/convert, certificate issue/manual, audit, reports, users, courses, attendance, assessments) all git-protected at commit 7dc718f. Confirmed scope: edit ONLY src/app/api/academy/students/route.ts, extend GET with ?id=X branch, do NOT touch POST or any other file.
+- Read prisma/schema.prisma to confirm Student/Course/Module/Attendance/Assessment/Certificate/AuditLog field names and relation shapes: Attendance.status ∈ {present, absent, excused}; Assessment.result ∈ {pass, not-yet-competent}; Certificate.status ∈ {active, revoked, reissued, replaced}; Student has enrolledAt/trainingStartDate/expectedCompletion DateTime?; AuditLog.timestamp DateTime.
+- Read src/lib/academy-session.ts (getSession reads SESSION_COOKIE → verifySessionToken, returns SessionPayload | null). Confirmed auth pattern: `if (!session) return 401` is already used by the existing GET; reused same pattern (no role gating needed for read).
+- Read existing src/app/api/academy/students/route.ts (249 lines). Existing GET: builds `where: Record<string, unknown>` from q/status/courseId, returns `{ ok, students }`. Existing POST has create/update/delete/convert actions — NOT touched.
+- Edited GET handler: added a top-of-function branch checking `searchParams.get("id")`. When present:
+  * `db.student.findUnique({ where: { id }, include: { certificates: true, attendances: { orderBy: { date: "desc" }, take: 50 }, assessments: { orderBy: { date: "desc" }, take: 50 }, auditLogs: { orderBy: { timestamp: "desc" }, take: 30 } } })`
+  * 404 with `{ ok: false, error: "Student not found." }` if null.
+  * Fetch course via chained ternary (avoids `let x = null` TS-narrowing pitfall noted in prior worklog): `const course = student.courseId ? await db.course.findUnique({ where: { id: student.courseId }, include: { modules: { where: { active: true }, orderBy: { order: "asc" } } } }) : null`.
+  * Computed `attendanceRate` = `present / total * 100` rounded to 1 decimal (Math.round(x*1000)/10); 0 if no attendances.
+  * Computed `passRate` = `pass / total * 100` rounded to 1 decimal; 0 if no assessments.
+  * Computed `certificateNumber` = most recent active cert's number — sorted `student.certificates` (already included) by issueDate desc, filtered to status==="active", first.certificateNumber or null. No extra query.
+  * Computed `enrolledDays` = `floor((now - enrolledAt) / 86400000)` or null if no enrolledAt.
+  * Computed `expectedCompletionDays` = `floor((expectedCompletion - enrolledAt) / 86400000)` or null if either missing.
+  * Merged into a COPY of the Prisma result via spread: `student: { ...student, ...computed }` — does NOT mutate the Prisma object.
+  * Returns `{ ok: true, student: {...student, ...computed}, course }`.
+- List/search/filter branch is preserved verbatim below the new branch (no behavior change when `?id` is absent).
+- Did NOT touch the POST handler, did NOT add new imports, did NOT modify any other file. Reused existing imports: NextRequest/NextResponse, db, getSession, type SessionPayload (SessionPayload is still imported; it remains used by the existing POST handler's `canWrite(session: SessionPayload | null)` helper).
+- Ran `bunx tsc --noEmit --skipLibCheck` → ZERO errors mentioning `students/route`.
+- Ran `bun run lint` → ZERO errors mentioning `students/route`.
+- Ran `curl -s -b "academy_session=test" http://localhost:3000/api/academy/students?id=nonexistent` → returned `{"ok":false,"error":"Not authenticated."}` (401) — route responds correctly; the test cookie is not a valid HMAC token so auth correctly rejects. Confirmed the endpoint is wired into the live dev server.
+
+Stage Summary:
+- Files modified: src/app/api/academy/students/route.ts (extended GET handler only; POST untouched; no other files touched).
+- API contract: GET /api/academy/students?id=<studentId> (auth required — any authenticated AcademyUser role may view) → 200 `{ ok: true, student: { ...studentFields, certificates[], attendances[≤50 desc], assessments[≤50 desc], auditLogs[≤30 desc], attendanceRate: number, passRate: number, certificateNumber: string|null, enrolledDays: number|null, expectedCompletionDays: number|null }, course: { ...courseFields, modules: Module[] (active only, ordered by order asc) } | null }` | 404 `{ ok: false, error: "Student not found." }` | 401 `{ ok: false, error: "Not authenticated." }`. Existing list contract unchanged: GET /api/academy/students (no `id` param) → `{ ok: true, students: [...] }` with `q`, `status`, `courseId` filters still working.
+- tsc: clean (no errors in students/route.ts) | lint: clean (no errors in students/route.ts)
+
+---
+Task ID: SMS-BE-4
+Agent: general-purpose (subagent)
+Task: Create forgot-password + reset-password endpoints (HMAC-signed tokens, no schema change)
+
+Work Log:
+- Read worklog.md (recent entries), prisma/schema.prisma (AcademyUser + AuditLog), src/lib/academy-auth.ts (hashPassword/verifyPassword/createSessionToken pattern + SECRET const + base64url.HMAC token format), src/lib/academy-session.ts, src/app/api/academy/login/route.ts (login flow), src/app/api/contact/route.ts (nodemailer SMTP setup — copied host/port/secure/auth/timeouts/tls:rejectUnauthorized pattern verbatim, plus SMTP_FROM_EMAIL/SMTP_USER fallback chain). Checked .env for SMTP_* + ACADEMY_SECRET presence (no secrets printed).
+- Created /home/z/my-project/src/app/api/academy/auth/ directory tree with forgot-password/ and reset-password/ subdirs (each gets its own route.ts → Next.js file-based routing).
+- FILE 1 — auth/forgot-password/route.ts (POST):
+  * Exports `dynamic = "force-dynamic"`.
+  * Parses JSON body, extracts email, lowercases + trims; 422 "A valid email is required." on missing/invalid (regex `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`).
+  * Always returns `{ ok: true, message: "If an account with that email exists, a reset link has been sent." }` — even on unexpected errors — to prevent email enumeration.
+  * Looks up AcademyUser by email. If user exists AND active=true:
+    - Builds reset token: `<base64url(json)>.<hmac>` where json = `{ userId, expiresAt: Date.now() + 3600_000 }`, hmac = HMAC-SHA256(SECRET, data) hex. Uses same `ACADEMY_SECRET || "ndayeni-academy-secret-2024"` fallback as academy-auth.ts.
+    - Reset URL: `${NEXT_PUBLIC_SITE_URL || "https://ndayenisolutions.co.za"}/training/forgot-password?token=${token}`.
+    - Builds HTML + plain-text email body matching the spec template (greeting with user.name, reset URL, 1-hour expiry, ignore-if-not-you line, "— Ndayeni Solutions Digital Academy" signoff). HTML version uses Ndayeni brand styling consistent with the contact route (#c2410c accent, #071515 headings, #f8fafc bg).
+    - Sends via cached nodemailer transport built with the SAME settings as src/app/api/contact/route.ts (SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASSWORD, secure=port===465, connectionTimeout/greetingTimeout/socketTimeout, tls:rejectUnauthorized=false unless SMTP_REQUIRE_VALID_CERT=true). Transporter cached at module scope per worker.
+    - try/catch around `transporter.sendMail` — on failure, console.error logs the error, response is STILL `{ ok: true, ... }` (no SMTP error leakage).
+    - Writes AuditLog: action="user.password_reset_requested", userId=user.id, details=`Password reset link sent to ${email}`. AuditLog write also wrapped in try/catch (non-fatal).
+  * Has GET handler that returns endpoint metadata.
+- FILE 2 — auth/reset-password/route.ts (POST):
+  * Exports `dynamic = "force-dynamic"`.
+  * Exports `verifyResetToken(token: string): { userId: string } | null` — used by the forgot-password PAGE's GET endpoint to validate the token before showing the form. Checks: well-formed `<data>.<sig>`, HMAC signature match, payload has userId:string + expiresAt:number, expiresAt >= Date.now(). Returns null on ANY failure (no distinguishable error to caller).
+  * POST parses body { token, password }.
+  * Validates password length >= 8 → 422 "Password must be at least 8 characters." (this check runs BEFORE token verification so password validation errors aren't masked by invalid-token errors).
+  * Calls `verifyResetToken(token)` — if null, returns 400 "Invalid or expired reset link." (same message for signature mismatch / expiry / malformed — no enumeration).
+  * Looks up AcademyUser by userId. If not found or active=false → same 400 "Invalid or expired reset link." (silent rejection — attacker can't tell user existence from token validity).
+  * Hashes new password with `hashPassword` from `@/lib/academy-auth` (pbkdf2 — same scheme as login).
+  * Updates user.passwordHash via `db.academyUser.update`.
+  * Writes AuditLog: action="user.password_reset", userId, details="User reset their password via email link" (try/catch — non-fatal).
+  * Returns `{ ok: true, message: "Your password has been reset. You can now log in." }`.
+  * Has GET handler that returns endpoint metadata.
+- TypeScript strict: no `any` used; body fields checked with `typeof === "string"` before narrowing; ResetPayload typed via interface + Partial<ResetPayload> on the parse-then-narrow path; err in catches is `unknown`.
+- Did NOT edit any existing file, did NOT modify schema, did NOT touch admin/page.tsx — within assigned scope only.
+
+Verification (all green):
+- `bunx tsc --noEmit --skipLibCheck` filtered to `auth/forgot-password|auth/reset-password` → EMPTY (no TS errors in either new file).
+- `bun run lint` filtered to `auth/forgot-password|auth/reset-password` → EMPTY (no lint errors).
+- `curl -s -X POST http://localhost:3000/api/academy/auth/forgot-password -H "Content-Type: application/json" -d '{"email":"nonexistent@example.com"}'` → `{"ok":true,"message":"If an account with that email exists, a reset link has been sent."}` (no email enumeration — confirmed).
+- `curl -s -X POST http://localhost:3000/api/academy/auth/reset-password -H "Content-Type: application/json" -d '{"token":"garbage","password":"short"}'` → `{"ok":false,"error":"Password must be at least 8 characters."}` (password validation runs first).
+- `curl -s -X POST http://localhost:3000/api/academy/auth/reset-password -H "Content-Type: application/json" -d '{"token":"garbage","password":"newpassword123"}'` → `{"ok":false,"error":"Invalid or expired reset link."}` (bad token rejected with the safe generic error).
+
+Stage Summary:
+- Files created: src/app/api/academy/auth/forgot-password/route.ts, src/app/api/academy/auth/reset-password/route.ts
+- API contracts:
+  - POST /api/academy/auth/forgot-password { email: string } → { ok: true, message: "If an account with that email exists, a reset link has been sent." } (ALWAYS — no enumeration; 422 on missing/invalid email with `{ ok: false, error: "A valid email is required." }`)
+  - POST /api/academy/auth/reset-password { token: string, password: string } → 200 `{ ok: true, message: "Your password has been reset. You can now log in." }` | 422 `{ ok: false, error: "Password must be at least 8 characters." }` | 400 `{ ok: false, error: "Invalid or expired reset link." }` (covers bad signature, expired, malformed, user-not-found, user-inactive — same message for all)
+  - `verifyResetToken(token: string): { userId: string } | null` exported from reset-password/route.ts for the frontend forgot-password PAGE's GET endpoint to validate a token before rendering the form.
+- Token format: `<base64url(json { userId, expiresAt })>.<hmac-sha256-hex>` — signed with `ACADEMY_SECRET` (same secret as session tokens in academy-auth.ts). 1-hour TTL. No DB table needed.
+- AuditLog entries: `user.password_reset_requested` (forgot-password, only when user exists+active) and `user.password_reset` (reset-password, after successful update).
+- tsc: clean (no errors in either file) | lint: clean (no errors in either file)
+- Next actions: frontend task should create /training/forgot-password/page.tsx that (1) on GET ?token=... calls a server-side check via verifyResetToken to decide whether to render the form or an "invalid/expired" notice, (2) on form submit POSTs { token, password } to /api/academy/auth/reset-password and shows the success message + a link back to /training/login. May also want toasts via Sonner for invalid/expired + success states.
+
+---
+Task ID: SMS-BE-3
+Agent: general-purpose (subagent)
+Task: Add certificate reissue action + extend reports with trends, status breakdown, top courses, attendance/assessment summaries
+
+Work Log:
+- Read /home/z/my-project/worklog.md (last 300 lines) to confirm prior agent work — Stage 1 plan dispatched 6 parallel backend subagents; SMS-BE-1 (student profile GET) and SMS-BE-4 (forgot/reset password) already appended entries. Confirmed scope: edit ONLY src/app/api/academy/certificate/route.ts + src/app/api/academy/reports/route.ts; preserve existing `issue`/`manual` paths and existing 8 dashboard counts verbatim.
+- Read prisma/schema.prisma to confirm field names/types: Certificate { id, studentId, programName, studentName, idNumber?, issueDate, certificateNumber (unique), signedBy?, status (default "active") — statuses: active | revoked | reissued | replaced }; Student.enrolledAt/completedAt/trainingStartDate/expectedCompletion are DateTime?; Student.createdAt DateTime (default now); AuditLog { userId?, studentId?, action, details?, timestamp }.
+- Read src/lib/academy-session.ts + src/lib/academy-auth.ts — getSession(req) returns SessionPayload | null via cookie → HMAC verify. SessionPayload has userId, email, role, name. Reused existing auth pattern already present in both routes; no new auth code added.
+- Read existing src/app/api/academy/certificate/route.ts (197 lines). Existing POST has two branches: `action === "manual"` (returns early at end of block) then default fall-through to `issue`. Existing `generateCertNumber()` helper reused. Existing `DEFAULT_SIGNATORY`/`SIGNATORY_TITLE` constants left untouched. GET handler untouched.
+- Edited src/app/api/academy/certificate/route.ts: inserted a new `if (action === "reissue") { ... }` branch BETWEEN the `manual` block's closing `}` and the `// ── issue (default)` comment. The `manual` and `issue` paths are byte-for-byte unchanged.
+  * Auth + role gating: same `super | admin | admissions` check as `issue`/`manual`; 403 with descriptive error if not allowed.
+  * Body: `const { certificateId, reason } = body as { certificateId?: string; reason?: string }` — destructures from `body` (Next's `req.json()` Promise<any>); explicit type annotation for clarity + avoids any implicit any lint complaints.
+  * 422 if `!certificateId`; 404 if cert not found via `db.certificate.findUnique({ where: { id: certificateId } })`.
+  * Marks the OLD certificate `status: "revoked"` via `db.certificate.update` — NOT deleted, preserving the audit trail.
+  * Generates a NEW cert number via existing `generateCertNumber()` helper; creates a new Certificate row carrying over `programName`, `studentName`, `idNumber`, `signedBy` from the old cert; sets `issueDate: new Date()` and `status: "active"`.
+  * Writes AuditLog entry: `action: "certificate.reissue"`, `details: "Reissued certificate ${oldNum} → ${newNum} for ${studentName}. Reason: ${reason || "not specified"}"` — exact format per spec.
+  * Returns 200 `{ ok: true, certificate: <new>, oldCertificateNumber: <old num> }`.
+- Read existing src/app/api/academy/reports/route.ts (51 lines). Existing GET runs Promise.all of 8 `db.*.count()` queries and returns `{ ok: true, stats: { ...8 counts... } }`. Existing `stats` shape preserved as-is.
+- Rewrote src/app/api/academy/reports/route.ts: added module-level helpers `monthKey(d)`, `last12Months()`, `bucketByMonth(dates, months)` and a `ALL_STATUSES` const tuple. Extended GET:
+  * Existing 8 counts Promise.all EXPANDED into a single Promise.all of 16 entries — 8 counts + 8 new aggregations: enrolledTrendRows, completedTrendRows, appliedTrendRows, certTrendRows (findMany select-only-date, filtered by `enrolledAt/completedAt/createdAt/issueDate gte elevenMonthsAgo`), studentsWithStatus (findMany select status), studentsWithCourse (findMany where courseId not null select courseId), recentAttendance (findMany where date gte thirtyDaysAgo select status), allAssessments (findMany select result).
+  * Used `not: null` Prisma filter for nullable DateTime fields (enrolledAt, completedAt) — Prisma 6 DateTimeNullableFilter accepts it cleanly.
+  * trends: 4 arrays (enrollments/completions/applications/certificates), each 12 entries `{ month: "YYYY-MM", count }` oldest-first. Months start at 11 months ago through current month.
+  * statusBreakdown: `Record<string, number>` initialized with all 11 schema statuses set to 0 (applied, under-review, info-required, accepted, enrolled, active, completed, rejected, withdrawn, deferred, terminated), then incremented from `studentsWithStatus` scan; unknown statuses also tallied defensively.
+  * topCourses: built Map<courseId, count> from `studentsWithCourse`, sorted desc, sliced top 5, then a SINGLE `db.course.findMany({ where: { id: { in: [...] } }, select: { id, title, code } })` (NOT N+1) and zipped into `[{ courseId, title, code, enrolled }]`. Falls back to "Unknown course"/"" if course record missing.
+  * attendanceSummary (last 30 days): counts present/absent/excused, computes `rate = present / total * 100` rounded to 1 dp (0 if total=0).
+  * assessmentSummary (all-time): counts pass / not-yet-competent, computes `rate = pass / total * 100` rounded to 1 dp (0 if total=0).
+  * Final response: `{ ok: true, stats: { ...8 existing counts... }, trends, statusBreakdown, topCourses, attendanceSummary, assessmentSummary }` — existing `stats` shape is byte-for-byte identical; new fields are additive only → backward compatible.
+- TypeScript strict compliance: no `any`. body typed via `as { certificateId?: string; reason?: string }` for the reissue branch destructuring. Map.get returns `number | undefined` handled via `?? 0` and `!== undefined` guards. ALL_STATUSES typed as `readonly string[]` via `as const`. No `as any` anywhere. Prisma return types are inferred; no manual casting.
+- Did NOT touch any other file. Did NOT modify schema. Did NOT touch admin/page.tsx. Existing `issue`/`manual` paths in certificate/route.ts preserved byte-for-byte. Existing 8 counts + `stats` shape in reports/route.ts preserved byte-for-byte.
+
+Verification (all green):
+- `bunx tsc --noEmit --skipLibCheck 2>&1 | grep -E "certificate/route|reports/route"` → EMPTY (no TS errors in either file). Pre-existing TS errors in unrelated files (Ndayeni-Solutions/*, examples/websocket/*, skills/*, src/app/api/contact/route.ts, src/app/api/academy/apply/route.ts, src/app/api/academy/welcome-letter/route.ts, src/app/training/admin/page.tsx, src/app/training/verify/[certificateNumber]/page.tsx, src/components/ndayeni/HeroScene.tsx) are out of scope and left untouched.
+- `bun run lint 2>&1 | grep -E "certificate/route|reports/route"` → EMPTY (no lint errors in either file). Full `bun run lint` output is 1 line (`$ eslint .`) — zero warnings/errors anywhere in the repo.
+
+Stage Summary:
+- Files modified: src/app/api/academy/certificate/route.ts (added reissue branch only; manual+issue paths unchanged), src/app/api/academy/reports/route.ts (extended GET response with 5 new fields; existing 8 counts + stats shape unchanged).
+- New API contracts:
+  - POST /api/academy/certificate { action: "reissue", certificateId: string, reason?: string } → 200 `{ ok: true, certificate: <new Certificate>, oldCertificateNumber: string }` | 401 `{ ok: false, error: "Not authenticated." }` | 403 `{ ok: false, error: "Only super/admin/admissions roles can reissue certificates." }` | 404 `{ ok: false, error: "Certificate not found." }` | 422 `{ ok: false, error: "certificateId is required." }`. Old cert is marked `status: "revoked"` (NOT deleted). Audit log `certificate.reissue` written with details `"Reissued certificate <oldNum> → <newNum> for <studentName>. Reason: <reason|not specified>"`.
+  - GET /api/academy/reports → `{ ok: true, stats: { ...existing 8 counts unchanged... }, trends: { enrollments: [{month,count} x12], completions: [...], applications: [...], certificates: [...] } (12 months oldest-first), statusBreakdown: { applied, "under-review", "info-required", accepted, enrolled, active, completed, rejected, withdrawn, deferred, terminated }, topCourses: [{ courseId, title, code, enrolled } x≤5 sorted desc], attendanceSummary: { present, absent, excused, rate } (last 30 days), assessmentSummary: { pass, "not-yet-competent", rate } (all-time) }`. Existing `stats` block is byte-for-byte identical to the prior contract.
+- tsc: clean (no errors in either file) | lint: clean (no errors in either file)
+- Next actions: frontend task should (1) add a "Reissue" button to the Certificates view in /training/admin/page.tsx that POSTs `{ action: "reissue", certificateId, reason }` and shows a Sonner toast on success; (2) wire ReportsCharts component to consume `trends` (4 line charts via recharts), `statusBreakdown` (pie/bar), `topCourses` (horizontal bar), `attendanceSummary` + `assessmentSummary` (gauge or stat cards).
+
+---
+Task ID: SMS-BE-5
+Agent: general-purpose (subagent)
+Task: Create CSV export endpoint for students / attendance / certificates
+
+Work Log:
+- Read worklog.md, prisma/schema.prisma, src/lib/academy-session.ts, src/lib/academy-auth.ts, src/lib/db.ts, and existing route patterns in src/app/api/academy/{students,attendance,certificate}/route.ts to ground the implementation in the actual schema, helper APIs, and existing WHERE-clause patterns.
+- Prisma models confirmed: Student (27 exportable fields incl. nullable studentNumber/applicationRef/idNumber/gender/nationality/preferredStartDate/preferredMode/highestEducation/employmentStatus/nextOfKin*/address/notes and DateTime? enrolledAt/trainingStartDate/expectedCompletion/completedAt plus non-null fullName/email/phone/program/status, Int progress, DateTime createdAt), Attendance (id, studentId, DateTime date, status, notes?, createdAt), Certificate (id, studentId, programName, studentName, idNumber?, DateTime issueDate, certificateNumber, signedBy?, status, plus required `student` relation).
+- Auth + session helper confirmed: getSession(req) reads the academy_session cookie via verifySessionToken, returns SessionPayload | null. Allowed imports per task scope: NextRequest/NextResponse from next/server, db from @/lib/db, getSession from @/lib/academy-session — no other imports used (SessionPayload type not needed because the `if (!session)` early-return narrows the type locally).
+- Created /home/z/my-project/src/app/api/academy/export/route.ts implementing:
+  * `export const dynamic = "force-dynamic"` at top.
+  * `VALID_TYPES = ["students","attendance","certificates"] as const` + `ExportType` union + `isExportType` type guard.
+  * `csvEscape(value: unknown): string` helper: null/undefined → ""; booleans → "Yes"/"No"; Date → full ISO; everything else → String(value). Wraps value in double quotes (and doubles embedded `"`) when the string contains a comma, double quote, or newline.
+  * `dateOnly(value)` helper → ISO string sliced to first 10 chars (YYYY-MM-DD) or null.
+  * `timestamp(value)` helper → full ISO timestamp or null.
+  * `buildCsv(headers, rows)` → joins header + escaped rows with `\r\n` line terminator.
+  * GET handler order: (1) parse `type` from URL and validate against VALID_TYPES → 422 JSON if missing/invalid (placed BEFORE auth so the verification curl returns 422 for `?type=invalid` — does not leak data since valid type values are public knowledge); (2) getSession(req) → 401 JSON if null; (3) dispatch on type.
+  * Students branch: mirrors the students list route WHERE-clause exactly — optional `status` (skipped if "all"), `courseId` (skipped if "all"), `q` (OR over fullName/email/studentNumber/applicationRef/phone contains). findMany orderBy createdAt desc. 27 columns in spec order.
+  * Attendance branch: optional `studentId` and `date` (YYYY-MM-DD treated as UTC day-range gte/lte just like the existing attendance route). findMany orderBy date desc. Then fetches students in a single parallel query `db.student.findMany({ where: { id: { in: studentIds } }, select: { id, studentNumber, fullName } })` and builds a Map for O(1) join — no N+1. 8 columns in spec order (Attendance ID, Student ID, Student Number, Student Name, Date, Status, Notes, Created At).
+  * Certificates branch: optional `studentId` filter. findMany orderBy issueDate desc with `include: { student: { select: { id, studentNumber, email, idNumber } } }` so Student Number + Email come from the related Student (Certificate model only stores studentName + idNumber). ID Number uses `c.idNumber ?? c.student.idNumber` fallback. 10 columns in spec order (Certificate Number, Student Number, Student Name, Email, ID Number, Program, Issue Date, Signed By, Status, Certificate ID).
+  * Date formatting: date-only fields (Preferred Start Date, attendance Date, certificate Issue Date) use `dateOnly()` → YYYY-MM-DD; timestamp fields (Enrolled At, Training Start Date, Expected Completion, Completed At, Created At, attendance Created At) use `timestamp()` → full ISO; null/undefined → empty string via csvEscape; the only boolean-ish field would already be handled by csvEscape's Yes/No branch (no booleans actually appear in any of the three column lists, but the helper is robust).
+  * Response: `return new NextResponse(csv, { status: 200, headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": \`attachment; filename="${type}-export-${today}.csv"\`, "Cache-Control": "no-store, no-cache, must-revalidate" } })` — uses NextResponse constructor directly (NOT NextResponse.json) per spec. Filename uses today's date in YYYY-MM-DD format.
+- Verification:
+  * `bunx tsc --noEmit --skipLibCheck 2>&1 | grep "export/route"` → empty (zero TypeScript errors in the new file; pre-existing errors in apply/route.ts, welcome-letter/route.ts, admin/page.tsx, HeroScene.tsx, contact/route.ts, and skills/* subdirs untouched and out of scope).
+  * `bun run lint 2>&1 | grep "export/route"` → empty (ESLint clean for the new file; `bun run lint` overall returns zero warnings/errors).
+  * `curl -s "http://localhost:3000/api/academy/export?type=invalid"` → `{"ok":false,"error":"type must be one of: students, attendance, certificates."}` with HTTP 422.
+  * `curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000/api/academy/export?type=students"` (no cookie) → HTTP 401 (auth still protects the actual CSV data — type validation happens first but data export does not).
+  * `curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000/api/academy/export"` (no type) → HTTP 422.
+
+Stage Summary:
+- Files created: src/app/api/academy/export/route.ts (~256 lines, single GET handler).
+- API contract: GET /api/academy/export?type=<students|attendance|certificates>&<filters> → CSV file download (Content-Type: text/csv; charset=utf-8, Content-Disposition: attachment; filename="<type>-export-YYYY-MM-DD.csv", Cache-Control: no-store). Auth via academy_session cookie (any authenticated role can export; 401 if absent). 422 JSON if `type` is missing or not one of the three allowed values. Optional filters: students → status, courseId, q (search across fullName/email/studentNumber/applicationRef/phone); attendance → studentId, date (YYYY-MM-DD, treated as UTC day-range); certificates → studentId. CSV escaping: cells containing `,`/`"`/`\n` are wrapped in double quotes with embedded `"` doubled; `\r\n` line terminator; first row is the header. Date cells: date-only fields formatted as YYYY-MM-DD, timestamp fields as full ISO, null/undefined as empty string, booleans as Yes/No.
+- Students CSV columns (27): Student Number, Application Ref, Full Name, Email, Phone, ID Number, Gender, Nationality, Status, Program, Course ID, Preferred Start Date, Preferred Mode, Highest Education, Employment Status, Enrolled At, Training Start Date, Expected Completion, Completed At, Progress %, Next of Kin Name, Next of Kin Phone, Next of Kin Email, Next of Kin Relationship, Address, Notes, Created At.
+- Attendance CSV columns (8): Attendance ID, Student ID, Student Number, Student Name, Date, Status, Notes, Created At. (Student Number + Student Name are joined via a single parallel `db.student.findMany({ where: { id: { in: studentIds } } })` query and an in-memory Map — no N+1.)
+- Certificates CSV columns (10): Certificate Number, Student Number, Student Name, Email, ID Number, Program, Issue Date, Signed By, Status, Certificate ID. (Student Number + Email come from the related Student via Prisma `include: { student: { select: {...} } }`; ID Number falls back from cert.idNumber to student.idNumber.)
+- tsc: clean (no errors in src/app/api/academy/export/route.ts) | lint: clean (zero warnings/errors).
+
+---
+Task ID: SMS-BE-2
+Agent: general-purpose (subagent)
+Task: Add bulk attendance POST action + gradebook matrix GET endpoint
+
+Work Log:
+- Read worklog.md (last 110 lines for SMS-POLISH-PLAN context), prisma/schema.prisma, src/app/api/academy/attendance/route.ts, src/app/api/academy/assessments/route.ts, src/lib/academy-session.ts, src/lib/academy-auth.ts, src/app/api/academy/students/route.ts (for logAudit pattern), tsconfig.json, eslint.config.mjs.
+- Confirmed scope: edit ONLY attendance/route.ts and assessments/route.ts. Existing single-record/`?studentId=` paths must remain 100% unchanged.
+- Edited attendance/route.ts POST:
+  * Added `action` to the destructured body fields (additive; existing single-record path untouched).
+  * Inserted new `if (action === "bulk")` branch BEFORE the existing single-record validation, with its own `return`.
+  * Bulk branch: validates date is a parseable YYYY-MM-DD string (regex + `new Date()` NaN check); rejects with 422 if missing/invalid.
+  * Validates `records` is a non-empty array ≤200 entries (422 otherwise).
+  * For each record: skips + collects reasons for missing studentId, invalid status (not in `present|absent|excused`).
+  * Batch-validates student existence via single `db.student.findMany({ where: { id: { in: validIds } }})` — missing students get skipped with reason "Student not found."
+  * Performs all upserts inside `db.$transaction(async (tx) => {…})` — finds existing records for studentId+date range, updates if found, creates if not.
+  * Writes ONE audit log entry inside the same transaction: `attendance.bulk` with details `Bulk attendance for {date}: {n} records ({present} present, {absent} absent, {excused} excused)` and `userId: session.userId`.
+  * Returns `{ ok: true, saved: <count>, skipped: [{ studentId: string|null, reason }] }`.
+  * Existing single-record path (no `action` field) is preserved verbatim — backward compatible.
+- Edited assessments/route.ts GET:
+  * Added `courseId` query param read alongside existing `studentId`.
+  * Inserted `if (courseId) {…}` branch BEFORE the existing `studentId` where-clause branch, with its own `return`.
+  * Fetches course with `include: { modules: { where: { active: true }, orderBy: { order: "asc" } } }}`; 404 if not found.
+  * Fetches all students with `courseId` matching and `status in ["enrolled","active","completed"]`, ordered by fullName asc, projecting `{ id, fullName, studentNumber, email, status, progress }`.
+  * Single `db.assessment.findMany({ where: { studentId: { in: studentIds } } })` fetches all relevant assessments.
+  * Builds matrix per student: initializes `cells[moduleTitle] = null` for every active module, then fills in the latest assessment (sort desc by `date.getTime()`, first occurrence per `moduleTitle` wins) with `{ result, mark, date: ISOString, comments }`.
+  * Summary: `totalStudents`, `totalModules`, `totalCells = totalStudents * totalModules`, `competentCells` (cells where `result === "pass"`), `passRate = Math.round((competentCells / totalCells) * 100)` (0 when no cells).
+  * Existing `?studentId=` behavior (no `courseId` param) is preserved verbatim — backward compatible.
+- Style notes: matched existing file conventions (function declarations, comment dividers, `Record<string, unknown>` where clause typing, no new imports). No `any` declarations introduced; relied on the existing file's implicit typing from `req.json()` (which `tsconfig.noImplicitAny:false` and `eslint @typescript-eslint/no-explicit-any:off` permit, identical to students/route.ts).
+
+Stage Summary:
+- Files modified: src/app/api/academy/attendance/route.ts, src/app/api/academy/assessments/route.ts
+- New API contracts:
+  - POST /api/academy/attendance { action: "bulk", date, records: [{studentId, status, notes?}] } → { ok, saved, skipped: [{studentId, reason}] }
+  - GET /api/academy/assessments?courseId=<id> → { ok, course, students, modules, matrix: [{student, cells: {moduleTitle: {result, mark, date, comments} | null}}], summary: {totalStudents, totalModules, passRate, competentCells, totalCells} }
+- tsc: clean (no errors in attendance/route.ts or assessments/route.ts; pre-existing errors in apply/route.ts, contact/route.ts, admin/page.tsx are out of scope) | lint: clean (no errors in attendance/route.ts or assessments/route.ts)
+
+---
+Task ID: SMS-BE-3
+Agent: general-purpose (subagent)
+Task: Add certificate reissue action + extend reports with trends, status breakdown, top courses, attendance/assessment summaries
+
+Work Log:
+- Read /home/z/my-project/worklog.md (last 300 lines) to confirm prior agent work — Stage 1 plan dispatched 6 parallel backend subagents; SMS-BE-1 (student profile GET), SMS-BE-2 (attendance bulk + assessments gradebook), and SMS-BE-4 (forgot/reset password) already appended entries. Confirmed scope: edit ONLY src/app/api/academy/certificate/route.ts + src/app/api/academy/reports/route.ts; preserve existing `issue`/`manual` paths and existing 8 dashboard counts verbatim.
+- Read prisma/schema.prisma to confirm field names/types: Certificate { id, studentId, programName, studentName, idNumber?, issueDate, certificateNumber (unique), signedBy?, status (default "active") — statuses: active | revoked | reissued | replaced }; Student.enrolledAt/completedAt/trainingStartDate/expectedCompletion are DateTime?; Student.createdAt DateTime (default now); AuditLog { userId?, studentId?, action, details?, timestamp }.
+- Read src/lib/academy-session.ts + src/lib/academy-auth.ts — getSession(req) returns SessionPayload | null via cookie → HMAC verify. SessionPayload has userId, email, role, name. Reused existing auth pattern already present in both routes; no new auth code added.
+- Read existing src/app/api/academy/certificate/route.ts (197 lines). Existing POST has two branches: `action === "manual"` (returns early at end of block) then default fall-through to `issue`. Existing `generateCertNumber()` helper reused. Existing `DEFAULT_SIGNATORY`/`SIGNATORY_TITLE` constants left untouched. GET handler untouched.
+- Edited src/app/api/academy/certificate/route.ts: inserted a new `if (action === "reissue") { ... }` branch BETWEEN the `manual` block's closing `}` and the `// ── issue (default)` comment. The `manual` and `issue` paths are byte-for-byte unchanged.
+  * Auth + role gating: same `super | admin | admissions` check as `issue`/`manual`; 403 with descriptive error if not allowed.
+  * Body: `const { certificateId, reason } = body as { certificateId?: string; reason?: string }` — destructures from `body` (Next's `req.json()` Promise<any>); explicit type annotation for clarity + avoids any implicit any lint complaints.
+  * 422 if `!certificateId`; 404 if cert not found via `db.certificate.findUnique({ where: { id: certificateId } })`.
+  * Marks the OLD certificate `status: "revoked"` via `db.certificate.update` — NOT deleted, preserving the audit trail.
+  * Generates a NEW cert number via existing `generateCertNumber()` helper; creates a new Certificate row carrying over `programName`, `studentName`, `idNumber`, `signedBy` from the old cert; sets `issueDate: new Date()` and `status: "active"`.
+  * Writes AuditLog entry: `action: "certificate.reissue"`, `details: "Reissued certificate ${oldNum} → ${newNum} for ${studentName}. Reason: ${reason || "not specified"}"` — exact format per spec.
+  * Returns 200 `{ ok: true, certificate: <new>, oldCertificateNumber: <old num> }`.
+- Read existing src/app/api/academy/reports/route.ts (51 lines). Existing GET runs Promise.all of 8 `db.*.count()` queries and returns `{ ok: true, stats: { ...8 counts... } }`. Existing `stats` shape preserved as-is.
+- Rewrote src/app/api/academy/reports/route.ts: added module-level helpers `monthKey(d)`, `last12Months()`, `bucketByMonth(dates, months)` and an `ALL_STATUSES` const tuple. Extended GET:
+  * Existing 8 counts Promise.all EXPANDED into a single Promise.all of 16 entries — 8 counts + 8 new aggregations: enrolledTrendRows, completedTrendRows, appliedTrendRows, certTrendRows (findMany select-only-date, filtered by `enrolledAt/completedAt/createdAt/issueDate gte elevenMonthsAgo`), studentsWithStatus (findMany select status), studentsWithCourse (findMany where courseId not null select courseId), recentAttendance (findMany where date gte thirtyDaysAgo select status), allAssessments (findMany select result).
+  * Used `not: null` Prisma filter for nullable DateTime fields (enrolledAt, completedAt) — Prisma 6 DateTimeNullableFilter accepts it cleanly (tsc verified).
+  * trends: 4 arrays (enrollments/completions/applications/certificates), each 12 entries `{ month: "YYYY-MM", count }` oldest-first. Months start at 11 months ago through current month.
+  * statusBreakdown: `Record<string, number>` initialized with all 11 schema statuses set to 0 (applied, under-review, info-required, accepted, enrolled, active, completed, rejected, withdrawn, deferred, terminated), then incremented from `studentsWithStatus` scan; unknown statuses also tallied defensively.
+  * topCourses: built Map<courseId, count> from `studentsWithCourse`, sorted desc, sliced top 5, then a SINGLE `db.course.findMany({ where: { id: { in: [...] } }, select: { id, title, code } })` (NOT N+1) and zipped into `[{ courseId, title, code, enrolled }]`. Falls back to "Unknown course"/"" if course record missing.
+  * attendanceSummary (last 30 days): counts present/absent/excused, computes `rate = present / total * 100` rounded to 1 dp (0 if total=0).
+  * assessmentSummary (all-time): counts pass / not-yet-competent, computes `rate = pass / total * 100` rounded to 1 dp (0 if total=0).
+  * Final response: `{ ok: true, stats: { ...8 existing counts... }, trends, statusBreakdown, topCourses, attendanceSummary, assessmentSummary }` — existing `stats` shape is byte-for-byte identical; new fields are additive only → backward compatible.
+- TypeScript strict compliance: no `any` used anywhere (and no `as any`). body typed via `as { certificateId?: string; reason?: string }` for the reissue branch destructuring. Map.get returns `number | undefined` handled via `?? 0` and `!== undefined` guards. ALL_STATUSES typed as `readonly string[]` via `as const`. Prisma return types are inferred; no manual casting.
+- Did NOT touch any other file. Did NOT modify schema. Did NOT touch admin/page.tsx. Existing `issue`/`manual` paths in certificate/route.ts preserved byte-for-byte. Existing 8 counts + `stats` shape in reports/route.ts preserved byte-for-byte.
+
+Verification (all green):
+- `bunx tsc --noEmit --skipLibCheck 2>&1 | grep -E "certificate/route|reports/route"` → EMPTY (no TS errors in either file). Pre-existing TS errors in unrelated files (Ndayeni-Solutions/*, examples/websocket/*, skills/*, src/app/api/contact/route.ts, src/app/api/academy/apply/route.ts, src/app/api/academy/welcome-letter/route.ts, src/app/training/admin/page.tsx, src/app/training/verify/[certificateNumber]/page.tsx, src/components/ndayeni/HeroScene.tsx) are out of scope and left untouched.
+- `bun run lint 2>&1 | grep -E "certificate/route|reports/route"` → EMPTY (no lint errors in either file). Full `bun run lint` output is 1 line (`$ eslint .`) — zero warnings/errors anywhere in the repo.
+
+Stage Summary:
+- Files modified: src/app/api/academy/certificate/route.ts (added reissue branch only; manual+issue paths unchanged), src/app/api/academy/reports/route.ts (extended GET response with 5 new fields; existing 8 counts + stats shape unchanged).
+- New API contracts:
+  - POST /api/academy/certificate { action: "reissue", certificateId: string, reason?: string } → 200 `{ ok: true, certificate: <new Certificate>, oldCertificateNumber: string }` | 401 `{ ok: false, error: "Not authenticated." }` | 403 `{ ok: false, error: "Only super/admin/admissions roles can reissue certificates." }` | 404 `{ ok: false, error: "Certificate not found." }` | 422 `{ ok: false, error: "certificateId is required." }`. Old cert is marked `status: "revoked"` (NOT deleted). Audit log `certificate.reissue` written with details `"Reissued certificate <oldNum> → <newNum> for <studentName>. Reason: <reason|not specified>"`.
+  - GET /api/academy/reports → `{ ok: true, stats: { ...existing 8 counts unchanged... }, trends: { enrollments: [{month,count} x12], completions: [...], applications: [...], certificates: [...] } (12 months oldest-first), statusBreakdown: { applied, "under-review", "info-required", accepted, enrolled, active, completed, rejected, withdrawn, deferred, terminated }, topCourses: [{ courseId, title, code, enrolled } x≤5 sorted desc], attendanceSummary: { present, absent, excused, rate } (last 30 days), assessmentSummary: { pass, "not-yet-competent", rate } (all-time) }`. Existing `stats` block is byte-for-byte identical to the prior contract.
+- tsc: clean (no errors in either file) | lint: clean (no errors in either file)
+- Next actions: frontend task should (1) add a "Reissue" button to the Certificates view in /training/admin/page.tsx that POSTs `{ action: "reissue", certificateId, reason }` and shows a Sonner toast on success; (2) wire ReportsCharts component to consume `trends` (4 line charts via recharts), `statusBreakdown` (pie/bar), `topCourses` (horizontal bar), `attendanceSummary` + `assessmentSummary` (gauge or stat cards).
+
+
+---
+Task ID: SMS-BE-6
+Agent: general-purpose (subagent)
+Task: Install pdfkit + create welcome letter PDF generator + download endpoint
+
+Work Log:
+- Read worklog.md (last ~160 lines), prisma/schema.prisma, src/lib/academy-session.ts, src/lib/academy-auth.ts, src/app/api/academy/students/route.ts, src/app/api/academy/certificate/route.ts, package.json to ground the implementation in the existing SMS architecture (AcademyUser/Student/Course/Module/Certificate/AuditLog models; getSession(req) cookie auth; db singleton; DEFAULT_SIGNATORY="Nhlakanipho Ntshangase" reused as the welcome letter signatory).
+- Installed `pdfkit@0.20.2` + `@types/pdfkit@0.17.6` via `bun add pdfkit @types/pdfkit` (16 packages added).
+- Created src/lib/welcome-letter.ts:
+  * Exports `interface WelcomeLetterStudent` (fullName/studentNumber/email/phone/address/program/courseId/preferredStartDate/preferredMode/enrolledAt/expectedCompletion/nextOfKinName/nextOfKinPhone) and `async function generateWelcomeLetterPdf(student): Promise<Buffer>`.
+  * Uses `import PDFDocument from "pdfkit"` (esModuleInterop=true makes the default import work cleanly).
+  * A4 portrait, 50pt margins; Helvetica + Helvetica-Bold fonts; brand navy #1e3a5f for headings, #0f172a for body, #64748b gray for subheading/footer, #cbd5e1 for the horizontal rule.
+  * Body text rendered with `lineGap: 3` (≈1.4 line spacing on 11pt); bullets with `lineGap: 2`.
+  * Date formatted via `toLocaleDateString("en-ZA", { day:"numeric", month:"long", year:"numeric" })` → "22 September 2025". First name extracted via `fullName.trim().split(/\s+/)[0]`.
+  * Buffer collection: subscribes to `doc.on("data", c => chunks.push(Buffer.from(c)))` and resolves on `doc.on("end", ...)`; rejects on `doc.on("error", ...)`; calls `doc.end()` last.
+  * Renders all spec content verbatim: letterhead, subheading, horizontal rule, right-aligned date, student block (with conditional Student No + address), greeting, welcome paragraph, PROGRAMME DETAILS / WHAT TO EXPECT / WHAT TO BRING ON YOUR FIRST DAY / CONTACT DETAILS sections, closing, "Warm regards," + 30pt signature gap (`doc.y += 30`), then signatory block (Nhlakanipho Ntshangase / Founder & CEO / Ndayeni Solutions Digital Academy), then the 2-line centered 9pt gray footer.
+  * Initial implementation pinned the footer to `doc.page.height - 60` via absolute (x,y) coords — but that pushed the footer onto page 2 because the body filled page 1 past that y. Refactored to flow the footer naturally after the signatory block (`moveDown(0.5)` + centered text), which keeps the entire letter on a single A4 page (verified with pdftotext + pdfinfo → 1 page).
+  * Sets PDF metadata (Title/Author/Subject/Creator).
+- Created src/app/api/academy/welcome-letter/route.ts:
+  * `export const dynamic = "force-dynamic"`; imports NextRequest/NextResponse, db, getSession, generateWelcomeLetterPdf.
+  * GET /api/academy/welcome-letter?studentId=<id>:
+    - 401 JSON `{ ok:false, error:"Not authenticated." }` if no valid session.
+    - 422 JSON `{ ok:false, error:"studentId query parameter is required." }` if studentId missing.
+    - 404 JSON if student not found.
+    - 403 JSON `{ ok:false, error:"Welcome letter is only available for enrolled students." }` if student.status is NOT in {enrolled, active, completed} — enforces the "once enrolled" rule.
+    - Generates the PDF via `generateWelcomeLetterPdf(...)`.
+    - Writes an AuditLog: action="welcome_letter.download", userId=session.userId, studentId=student.id, details="Downloaded welcome letter for ${student.fullName}".
+    - Returns the PDF as `new NextResponse(body, { status:200, headers:{ "Content-Type":"application/pdf", "Content-Disposition":'attachment; filename="welcome-letter-<studentNumber|id>.pdf"', "Cache-Control":"no-store, no-cache, must-revalidate" } })`.
+  * TS-strict workaround: Buffer<ArrayBufferLike> is not assignable to NextResponse's BodyInit under TS 5.9 (BufferSource now requires ArrayBufferView<ArrayBuffer> specifically). Resolved by copying the bytes into a fresh `new Uint8Array(pdfBuffer)` (Uint8Array<ArrayBuffer>), which is type-safe and copies only a few KB. No `any`/`as unknown as` casts used.
+- Verified:
+  * `bun pm ls | grep -i pdfkit` → `@types/pdfkit@0.17.6` and `pdfkit@0.20.2` listed.
+  * `bunx tsc --noEmit --skipLibCheck 2>&1 | grep -E "welcome-letter"` → EMPTY (clean).
+  * `bun run lint 2>&1 | grep -E "welcome-letter"` → EMPTY (clean).
+  * `curl -s "http://localhost:3000/api/academy/welcome-letter"` → `{"ok":false,"error":"Not authenticated."}` (HTTP 401, not 500).
+  * dev.log shows `GET /api/academy/welcome-letter 401 in 112ms (compile: 105ms, render: 7ms)` — endpoint compiled cleanly, no pdfkit errors.
+  * End-to-end local test (via a throwaway script, since deleted): generated two sample PDFs (with/without studentNumber + address) and confirmed via `pdfinfo` both are 1-page A4 PDFs, and via `pdftotext -layout` confirmed all spec text (letterhead, subheading, date, student block, greeting, welcome paragraph, all 4 sections, contact bullets, closing, 30pt-gap signature block, and the 2-line footer) renders verbatim with correct alignment.
+
+Stage Summary:
+- Files created: src/lib/welcome-letter.ts (PDF generator + WelcomeLetterStudent interface), src/app/api/academy/welcome-letter/route.ts (GET endpoint).
+- Dependencies added: pdfkit@0.20.2, @types/pdfkit@0.17.6.
+- API contract: GET /api/academy/welcome-letter?studentId=<id> → 200 PDF file download (Content-Type: application/pdf, Content-Disposition: attachment; filename="welcome-letter-<studentNumber|id>.pdf", Cache-Control: no-store). Auth required (401), studentId required (422), student must exist (404), student.status must be enrolled|active|completed (403 otherwise — enforces the "once enrolled" rule). Writes a `welcome_letter.download` AuditLog entry on every successful download.
+- Exported helper: `generateWelcomeLetterPdf(student: WelcomeLetterStudent): Promise<Buffer>` in src/lib/welcome-letter.ts — pure, testable, reusable (e.g. can be called from the student "convert" action later to email the letter on enrolment).
+- tsc: clean (no errors in welcome-letter files) | lint: clean (no warnings/errors in welcome-letter files)
