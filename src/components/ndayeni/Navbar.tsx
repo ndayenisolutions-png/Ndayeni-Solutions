@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import gsap from "gsap";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
@@ -37,6 +37,9 @@ const trainingLinks = [
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  // Both dropdowns start COLLAPSED on mobile — user expands by tapping the header.
+  const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
+  const [mobileTrainingOpen, setMobileTrainingOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -62,18 +65,23 @@ export default function Navbar() {
     }
   }, [isMobileOpen]);
 
+  // Close the mobile menu + reset both dropdowns to collapsed.
+  // Used by every close trigger (burger toggle when closing, backdrop tap,
+  // link click, resize-to-desktop) so the next open starts with collapsed dropdowns.
+  const closeMobileMenu = useCallback(() => {
+    setIsMobileOpen(false);
+    setMobileServicesOpen(false);
+    setMobileTrainingOpen(false);
+  }, []);
+
   // Close menu on orientation change or resize to desktop
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 768) setIsMobileOpen(false);
+      if (window.innerWidth >= 768) closeMobileMenu();
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // Navbar is fixed and visible immediately — no entrance animation.
-  // (Previously a GSAP y:-100→0 slide-down that could get stuck
-  //  partway and push the navbar off-screen on mobile.)
+  }, [closeMobileMenu]);
 
   // GSAP animation for mobile menu open/close
   useEffect(() => {
@@ -116,12 +124,13 @@ export default function Navbar() {
   // Smooth-scroll to section using GSAP + close menu
   const handleNavClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-      // Real routes (starting with /) navigate normally — don't intercept
+      // Real routes (starting with /) navigate normally — just close the mobile menu.
       if (href.startsWith("/") && !href.startsWith("/#")) {
+        closeMobileMenu();
         return;
       }
       e.preventDefault();
-      setIsMobileOpen(false);
+      closeMobileMenu();
       // Defer the scroll until after the menu starts closing
       requestAnimationFrame(() => {
         const target = document.querySelector(href);
@@ -134,7 +143,7 @@ export default function Navbar() {
         }
       });
     },
-    []
+    [closeMobileMenu]
   );
 
   return (
@@ -181,19 +190,13 @@ export default function Navbar() {
             </a>
           ))}
 
-          {/* Services Dropdown */}
+          {/* Services Dropdown (desktop, hover-triggered) */}
           <div className="relative group/services">
-            <a
-              href="#services"
-              onClick={(e) => handleNavClick(e, "#services")}
-              className="flex items-center gap-1 text-warm-white/70 hover:text-brand transition-colors duration-300 text-sm font-medium tracking-wide group"
-            >
+            <button className="flex items-center gap-1 text-warm-white/70 hover:text-brand transition-colors duration-300 text-sm font-medium tracking-wide">
               Services
-              <svg className="w-3.5 h-3.5 group-hover/services:rotate-180 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover:w-full transition-all duration-300" />
-            </a>
+              <ChevronDown className="w-3.5 h-3.5 group-hover/services:rotate-180 transition-transform duration-300" />
+              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover/services:w-full transition-all duration-300" />
+            </button>
             {/* Dropdown panel */}
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 opacity-0 invisible group-hover/services:opacity-100 group-hover/services:visible transition-all duration-300 z-50">
               <div className="glass-strong rounded-xl border border-brand/15 shadow-2xl shadow-black/40 overflow-hidden max-h-[80vh] overflow-y-auto">
@@ -218,13 +221,11 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Training Dropdown */}
+          {/* Training Dropdown (desktop, hover-triggered) */}
           <div className="relative group/training">
             <button className="flex items-center gap-1 text-warm-white/70 hover:text-brand transition-colors duration-300 text-sm font-medium tracking-wide">
               Training
-              <svg className="w-3.5 h-3.5 group-hover/training:rotate-180 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDown className="w-3.5 h-3.5 group-hover/training:rotate-180 transition-transform duration-300" />
               <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover/training:w-full transition-all duration-300" />
             </button>
             {/* Dropdown panel */}
@@ -249,7 +250,7 @@ export default function Navbar() {
         {/* Mobile Toggle */}
         <button
           type="button"
-          onClick={() => setIsMobileOpen((v) => !v)}
+          onClick={() => (isMobileOpen ? closeMobileMenu() : setIsMobileOpen(true))}
           className="md:hidden text-warm-white p-3 -mr-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg active:bg-white/10 z-[60] relative"
           aria-label={isMobileOpen ? "Close menu" : "Open menu"}
           aria-expanded={isMobileOpen}
@@ -263,23 +264,26 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile Nav — controlled by GSAP */}
+      {/* Mobile Nav — controlled by GSAP. Now scrollable + dropdowns start collapsed. */}
       <div
         ref={backdropRef}
         className="md:hidden fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/60 backdrop-blur-sm z-40"
         style={{ opacity: 0, display: "none", touchAction: "manipulation" }}
-        onClick={() => setIsMobileOpen(false)}
+        onClick={() => closeMobileMenu()}
       />
       <div
         id="mobile-menu"
         ref={mobileMenuRef}
         role="dialog"
         aria-label="Mobile navigation menu"
-        className="md:hidden fixed top-0 left-0 right-0 glass-strong border-b border-brand/10 z-50 shadow-2xl shadow-black/40"
+        // max-h-[100dvh] + overflow-y-auto + overscroll-contain = the menu scrolls within the viewport
+        // (was overflowing off-screen on iOS when Services/Training were expanded).
+        className="md:hidden fixed top-0 left-0 right-0 glass-strong border-b border-brand/10 z-50 shadow-2xl shadow-black/40 max-h-[100dvh] overflow-y-auto overscroll-contain"
         style={{ opacity: 0, y: -20, display: "none", touchAction: "manipulation" }}
       >
         <nav aria-label="Mobile navigation" className="flex flex-col pt-20 pb-6 px-5 gap-0">
           <div ref={menuLinksRef}>
+            {/* Plain top-level links */}
             {navLinks.map((link) => (
               <a
                 key={link.label}
@@ -294,48 +298,91 @@ export default function Navbar() {
                 {link.label}
               </a>
             ))}
-            {/* Mobile Services links */}
-            <div className="border-b border-dark-border/20 py-2 px-3">
-              <div className="text-text-muted text-xs uppercase tracking-wider font-semibold mb-2 pt-2">Services</div>
-              <a
-                href="/services"
-                className="flex flex-col py-3 px-3 text-brand hover:bg-brand/10 active:bg-brand/10 transition-colors duration-200 rounded-lg min-h-[48px] justify-center"
+
+            {/* Services accordion — COLLAPSED BY DEFAULT, tap header to expand */}
+            <div className="border-b border-dark-border/20">
+              <button
+                type="button"
+                onClick={() => setMobileServicesOpen((v) => !v)}
+                aria-expanded={mobileServicesOpen}
+                aria-controls="mobile-services-section"
+                className="w-full flex items-center justify-between text-warm-white/80 hover:text-brand active:text-brand transition-colors duration-200 py-4 px-3 text-lg font-medium tracking-wide min-h-[48px] rounded-lg"
+                style={{
+                  WebkitTapHighlightColor: "transparent",
+                  touchAction: "manipulation",
+                }}
               >
-                <span className="text-base font-semibold">All Services →</span>
-                <span className="text-text-muted text-xs">Browse all 9 categories</span>
-              </a>
-              {servicesDropdownLinks.map((link) => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  className="flex flex-col py-3 px-3 text-warm-white/80 hover:text-brand active:text-brand active:bg-brand/10 transition-colors duration-200 rounded-lg min-h-[48px] justify-center"
-                  style={{
-                    WebkitTapHighlightColor: "transparent",
-                    touchAction: "manipulation",
-                  }}
-                >
-                  <span className="text-base font-medium">{link.label}</span>
-                  <span className="text-text-muted text-xs">{link.desc}</span>
-                </a>
-              ))}
+                <span>Services</span>
+                <ChevronDown className={`w-5 h-5 text-text-muted transition-transform duration-300 ${mobileServicesOpen ? "rotate-180" : ""}`} />
+              </button>
+              {mobileServicesOpen && (
+                <div id="mobile-services-section" className="pb-2">
+                  <a
+                    href="/services"
+                    onClick={() => closeMobileMenu()}
+                    className="flex flex-col py-3 px-3 text-brand hover:bg-brand/10 active:bg-brand/10 transition-colors duration-200 rounded-lg min-h-[48px] justify-center"
+                    style={{
+                      WebkitTapHighlightColor: "transparent",
+                      touchAction: "manipulation",
+                    }}
+                  >
+                    <span className="text-base font-semibold">All Services →</span>
+                    <span className="text-text-muted text-xs">Browse all 9 categories</span>
+                  </a>
+                  {servicesDropdownLinks.map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      onClick={() => closeMobileMenu()}
+                      className="flex flex-col py-3 px-3 text-warm-white/80 hover:text-brand active:text-brand active:bg-brand/10 transition-colors duration-200 rounded-lg min-h-[48px] justify-center"
+                      style={{
+                        WebkitTapHighlightColor: "transparent",
+                        touchAction: "manipulation",
+                      }}
+                    >
+                      <span className="text-base font-medium">{link.label}</span>
+                      <span className="text-text-muted text-xs">{link.desc}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
-            {/* Mobile Training links */}
-            <div className="border-b border-dark-border/20 py-2 px-3">
-              <div className="text-text-muted text-xs uppercase tracking-wider font-semibold mb-2 pt-2">Training</div>
-              {trainingLinks.map((link) => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  className="flex flex-col py-3 px-3 text-warm-white/80 hover:text-brand active:text-brand active:bg-brand/10 transition-colors duration-200 rounded-lg min-h-[48px] justify-center"
-                  style={{
-                    WebkitTapHighlightColor: "transparent",
-                    touchAction: "manipulation",
-                  }}
-                >
-                  <span className="text-base font-medium">{link.label}</span>
-                  <span className="text-text-muted text-xs">{link.desc}</span>
-                </a>
-              ))}
+
+            {/* Training accordion — COLLAPSED BY DEFAULT, tap header to expand */}
+            <div className="border-b border-dark-border/20">
+              <button
+                type="button"
+                onClick={() => setMobileTrainingOpen((v) => !v)}
+                aria-expanded={mobileTrainingOpen}
+                aria-controls="mobile-training-section"
+                className="w-full flex items-center justify-between text-warm-white/80 hover:text-brand active:text-brand transition-colors duration-200 py-4 px-3 text-lg font-medium tracking-wide min-h-[48px] rounded-lg"
+                style={{
+                  WebkitTapHighlightColor: "transparent",
+                  touchAction: "manipulation",
+                }}
+              >
+                <span>Training</span>
+                <ChevronDown className={`w-5 h-5 text-text-muted transition-transform duration-300 ${mobileTrainingOpen ? "rotate-180" : ""}`} />
+              </button>
+              {mobileTrainingOpen && (
+                <div id="mobile-training-section" className="pb-2">
+                  {trainingLinks.map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      onClick={() => closeMobileMenu()}
+                      className="flex flex-col py-3 px-3 text-warm-white/80 hover:text-brand active:text-brand active:bg-brand/10 transition-colors duration-200 rounded-lg min-h-[48px] justify-center"
+                      style={{
+                        WebkitTapHighlightColor: "transparent",
+                        touchAction: "manipulation",
+                      }}
+                    >
+                      <span className="text-base font-medium">{link.label}</span>
+                      <span className="text-text-muted text-xs">{link.desc}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </nav>
