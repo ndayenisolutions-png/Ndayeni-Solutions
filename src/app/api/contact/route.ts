@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer, { Transporter } from "nodemailer";
+import { checkRateLimit, getClientIp, rateLimitedResponse, RATE_LIMITS } from "@/lib/rate-limit";
 
 // Force this route to be dynamic (server-side). We never want it cached.
 export const dynamic = "force-dynamic";
@@ -122,6 +123,14 @@ async function getTestTransporter() {
 }
 
 export async function POST(req: NextRequest) {
+  // ── RATE LIMITING — 5 messages per hour per IP ──
+  // Blocks contact-form spam (even with reCAPTCHA, defence-in-depth is worth it).
+  const ip = getClientIp(req);
+  const ipLimit = checkRateLimit(`contact:${ip}`, RATE_LIMITS.contact.limit, RATE_LIMITS.contact.windowMs);
+  if (!ipLimit.ok) {
+    return rateLimitedResponse(ipLimit.retryAfterSeconds, "contact form submission");
+  }
+
   let body: ContactPayload;
   try {
     body = await req.json();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/academy-session";
 import type { SessionPayload } from "@/lib/academy-auth";
+import { checkRateLimit, getClientIp, rateLimitedResponse, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -36,9 +37,20 @@ const VALID_EMPLOYMENT_TYPES = ["full-time", "part-time", "contract", "internshi
 //   ?admin=true  → returns ALL vacancies (incl. drafts + expired) — admin only
 //   ?id=<id>     → returns a single active vacancy (for the detail page)
 export async function GET(req: NextRequest) {
+  // ── RATE LIMITING (public reads only) — 60 per minute per IP ──
+  // Admin-mode reads skip this check (the admin is authenticated, so the
+  // auth check itself is the throttle).
   const { searchParams } = new URL(req.url);
   const adminMode = searchParams.get("admin") === "true";
   const id = searchParams.get("id");
+
+  if (!adminMode) {
+    const ip = getClientIp(req);
+    const ipLimit = checkRateLimit(`vacancies-read:${ip}`, RATE_LIMITS.vacanciesRead.limit, RATE_LIMITS.vacanciesRead.windowMs);
+    if (!ipLimit.ok) {
+      return rateLimitedResponse(ipLimit.retryAfterSeconds, "vacancy read");
+    }
+  }
 
   // ── Single-vacancy detail lookup (public — only active + not expired) ──
   if (id) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
 import nodemailer, { Transporter } from "nodemailer";
 import { db } from "@/lib/db";
+import { checkRateLimit, getClientIp, rateLimitedResponse, RATE_LIMITS } from "@/lib/rate-limit";
 
 // Force dynamic — never cache this route.
 export const dynamic = "force-dynamic";
@@ -9,7 +10,18 @@ export const dynamic = "force-dynamic";
 // ─── Secrets + token config ───────────────────────────────────────────
 // Reuse the same secret academy-auth.ts uses for session tokens so the
 // signing key is consistent across the SMS auth surface.
-const SECRET = process.env.ACADEMY_SECRET || "ndayeni-academy-secret-2024";
+//
+// SECURITY: previously had a hardcoded fallback ("ndayeni-academy-secret-2024")
+// which would silently sign tokens with a publicly-known default if the env var
+// wasn't set. Now fail-fast matches the academy-auth.ts behaviour — if
+// ACADEMY_SECRET is missing or too short, this route refuses to issue tokens.
+function requireSecret(): string {
+  const s = process.env.ACADEMY_SECRET;
+  if (!s || s.length < 16) {
+    throw new Error("ACADEMY_SECRET env var is missing or too short (< 16 chars). Set it in Vercel env vars.");
+  }
+  return s;
+}
 const RESET_TTL_SECONDS = 3600; // 1 hour
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -64,7 +76,7 @@ function createResetToken(userId: string): string {
     expiresAt: Date.now() + RESET_TTL_SECONDS * 1000,
   };
   const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const sig = createHmac("sha256", SECRET).update(data).digest("hex");
+  const sig = createHmac("sha256", requireSecret()).update(data).digest("hex");
   return `${data}.${sig}`;
 }
 
@@ -88,6 +100,15 @@ function safeOkResponse() {
 }
 
 export async function POST(req: NextRequest) {
+  // ── RATE LIMITING — 3 requests per hour per IP ──
+  // Prevents email enumeration (testing which emails exist in the system)
+  // + prevents SMTP abuse (sending reset emails to attacker-controlled addresses).
+  const ip = getClientIp(req);
+  const ipLimit = checkRateLimit(`forgot-pw:${ip}`, RATE_LIMITS.forgotPassword.limit, RATE_LIMITS.forgotPassword.windowMs);
+  if (!ipLimit.ok) {
+    return rateLimitedResponse(ipLimit.retryAfterSeconds, "password reset");
+  }
+
   // ─── Parse + validate the email ───
   let email: string;
   try {

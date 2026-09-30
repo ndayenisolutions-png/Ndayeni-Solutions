@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { hashPassword } from "@/lib/academy-auth";
+import { hashPassword, validatePasswordComplexity } from "@/lib/academy-auth";
 import { getSession } from "@/lib/academy-session";
 import type { SessionPayload } from "@/lib/academy-auth";
 
@@ -55,6 +55,13 @@ export async function POST(req: NextRequest) {
     if (!email || !password || !name) {
       return NextResponse.json({ ok: false, error: "Email, password and name required." }, { status: 422 });
     }
+    // ── PASSWORD COMPLEXITY VALIDATION ──
+    // Enforces min 8 chars + uppercase + lowercase + digit + special char.
+    // Matches POPIA "appropriate technical measures" against weak passwords.
+    const passwordErrors = validatePasswordComplexity(password);
+    if (passwordErrors.length > 0) {
+      return NextResponse.json({ ok: false, error: "Password does not meet complexity requirements.", passwordErrors }, { status: 422 });
+    }
     // Only super can create super users
     if (role === "super" && session.role !== "super") {
       return NextResponse.json({ ok: false, error: "Only super users can assign the super role." }, { status: 403 });
@@ -65,7 +72,7 @@ export async function POST(req: NextRequest) {
     const user = await db.academyUser.create({
       data: {
         email: email.toLowerCase().trim(),
-        passwordHash: hashPassword(password),
+        passwordHash: await hashPassword(password),
         name: name.trim(),
         role: role || "admin",
       },
@@ -135,6 +142,11 @@ export async function POST(req: NextRequest) {
     if (!id || !password) {
       return NextResponse.json({ ok: false, error: "User ID and new password required." }, { status: 422 });
     }
+    // ── PASSWORD COMPLEXITY VALIDATION ──
+    const passwordErrors = validatePasswordComplexity(password);
+    if (passwordErrors.length > 0) {
+      return NextResponse.json({ ok: false, error: "Password does not meet complexity requirements.", passwordErrors }, { status: 422 });
+    }
     // Only super, OR user resetting their own password
     if (session.role !== "super" && id !== session.userId) {
       return NextResponse.json({ ok: false, error: "Only super users can reset another user's password." }, { status: 403 });
@@ -144,7 +156,7 @@ export async function POST(req: NextRequest) {
 
     await db.academyUser.update({
       where: { id },
-      data: { passwordHash: hashPassword(password) },
+      data: { passwordHash: await hashPassword(password) },
     });
 
     await db.auditLog.create({

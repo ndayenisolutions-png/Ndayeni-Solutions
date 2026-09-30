@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
 import { db } from "@/lib/db";
-import { hashPassword } from "@/lib/academy-auth";
+import { hashPassword, validatePasswordComplexity } from "@/lib/academy-auth";
+import { checkRateLimit, getClientIp, rateLimitedResponse, RATE_LIMITS } from "@/lib/rate-limit";
 
 // Force dynamic — never cache this route.
 export const dynamic = "force-dynamic";
 
-// Same secret academy-auth.ts uses for session tokens.
-const SECRET = process.env.ACADEMY_SECRET || "ndayeni-academy-secret-2024";
+// Same secret academy-auth.ts uses for session tokens. Fail-fast if missing
+// (mirrors academy-auth.ts behaviour — no more hardcoded fallback).
+function requireSecret(): string {
+  const s = process.env.ACADEMY_SECRET;
+  if (!s || s.length < 16) {
+    throw new Error("ACADEMY_SECRET env var is missing or too short (< 16 chars).");
+  }
+  return s;
+}
 
 interface ResetPayload {
   userId: string;
@@ -33,8 +41,9 @@ export function verifyResetToken(token: string): { userId: string } | null {
     const [data, sig] = token.split(".");
     if (!data || !sig) return null;
 
-    const expectedSig = createHmac("sha256", SECRET).update(data).digest("hex");
-    if (sig !== expectedSig) return null;
+    const expectedSig = createHmac("sha256", requireSecret()).update(data).digest("hex");
+    // Use constant-time comparison to prevent timing attacks on signature verification.
+    if (!timingSafeStringEqual(sig, expectedSig)) return null;
 
     const payload = JSON.parse(
       Buffer.from(data, "base64url").toString()
@@ -64,7 +73,26 @@ function invalidTokenResponse() {
   );
 }
 
+// Constant-time string comparison — prevents timing attacks on signature verification.
+// (Local copy — same logic as academy-auth.ts's timingSafeEqual, kept private here
+// to avoid circular imports. If we ever need it elsewhere, extract to a shared util.)
+function timingSafeStringEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 export async function POST(req: NextRequest) {
+  // ── RATE LIMITING — 5 attempts per hour per IP ──
+  // Prevents brute-force token guessing + password-reset abuse.
+  const ip = getClientIp(req);
+  const ipLimit = checkRateLimit(`reset-pw:${ip}`, RATE_LIMITS.resetPassword.limit, RATE_LIMITS.resetPassword.windowMs);
+  if (!ipLimit.ok) {
+    return rateLimitedResponse(ipLimit.retryAfterSeconds, "password reset");
+  }
   // ─── Parse body ───
   let token: string;
   let password: string;
@@ -79,12 +107,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ─── Validate the new password ───
-  if (!password || password.length < 8) {
-    return NextResponse.json(
-      { ok: false, error: "Password must be at least 8 characters." },
-      { status: 422 }
-    );
+  // ─── Validate the new password (full complexity check) ───
+  // Enforces min 8 chars + uppercase + lowercase + digit + special char.
+  // Matches POPIA "appropriate technical measures" against weak passwords.
+  const passwordErrors = validatePasswordComplexity(password);
+  if (passwordErrors.length > 0) {
+    return NextResponse.json({ ok: false, error: "Password does not meet complexity requirements.", passwordErrors }, { status: 422 });
   }
 
   // ─── Verify the token (signature + expiry) ───
@@ -101,7 +129,7 @@ export async function POST(req: NextRequest) {
     if (!user || !user.active) return invalidTokenResponse();
 
     // ─── Hash + persist the new password ───
-    const passwordHash = hashPassword(password);
+    const passwordHash = await hashPassword(password);
     await db.academyUser.update({
       where: { id: user.id },
       data: { passwordHash },

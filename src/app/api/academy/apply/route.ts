@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
+import { checkRateLimit, getClientIp, rateLimitedResponse, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,14 @@ function sanitize(s: string | undefined | null, maxLen = 500): string | null {
 }
 
 export async function POST(req: NextRequest) {
+  // ── RATE LIMITING — 3 applications per hour per IP ──
+  // Blocks spam applications + automated abuse of the academy application form.
+  const ip = getClientIp(req);
+  const ipLimit = checkRateLimit(`apply:${ip}`, RATE_LIMITS.apply.limit, RATE_LIMITS.apply.windowMs);
+  if (!ipLimit.ok) {
+    return rateLimitedResponse(ipLimit.retryAfterSeconds, "application submission");
+  }
+
   const body = await req.json();
 
   // ── SERVER-SIDE VALIDATION (Level 1: Required, Level 2: Format) ──
