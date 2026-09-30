@@ -327,9 +327,11 @@ export default function AdminPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-dark-deep flex">
-      {/* Sidebar */}
-      <aside className={`fixed md:sticky md:top-0 md:self-start z-50 w-64 h-screen glass-strong border-r border-dark-border/30 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
+    <div className="min-h-screen bg-dark-deep">
+      {/* Sidebar — fixed on ALL viewports so it NEVER scrolls with the page.
+          On desktop: visible (translate-x-0) + main content padded left (md:pl-64).
+          On mobile: hidden off-screen (translate-x-full), slides in via burger menu. */}
+      <aside className={`fixed left-0 top-0 z-50 w-64 h-screen glass-strong border-r border-dark-border/30 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
         <div className="p-4 border-b border-dark-border/30">
           <Link href="/training" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-brand-light flex items-center justify-center"><span className="text-dark-deep font-bold text-sm">N</span></div>
@@ -355,8 +357,9 @@ export default function AdminPage() {
       {/* Backdrop for mobile */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />}
 
-      {/* Main content */}
-      <main className="flex-1 overflow-x-hidden">
+      {/* Main content — padded left on desktop (md:pl-64) to make room for the fixed sidebar.
+          On mobile, no padding (sidebar is hidden, slides in as overlay). */}
+      <main className="md:pl-64 overflow-x-hidden min-h-screen">
         {/* Mobile top bar */}
         <div className="md:hidden glass-strong border-b border-dark-border/30 p-3 flex items-center gap-3 sticky top-0 z-30">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-warm-white p-2"><ChevronDown className={`w-5 h-5 transition-transform ${sidebarOpen ? "rotate-180" : ""}`} /></button>
