@@ -184,3 +184,41 @@ ON CONFLICT DO NOTHING;
 -- ════════════════════════════════════════════════════════════════
 -- DONE — Tables created and seeded
 -- ════════════════════════════════════════════════════════════════
+
+-- ════════════════════════════════════════════════════════════════
+-- Vacancies / Careers — public job postings managed by admin users
+-- (Starts with zero rows — the public /vacancies page shows the
+--  "no vacancies" empty state until an admin creates one.)
+-- ════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS "Vacancy" (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  title TEXT NOT NULL,
+  department TEXT NOT NULL,
+  location TEXT NOT NULL,
+  "employmentType" TEXT NOT NULL,                       -- full-time | part-time | contract | internship
+  description TEXT NOT NULL,
+  responsibilities TEXT,
+  requirements TEXT,
+  benefits TEXT,
+  "closingDate" TIMESTAMP(3) NOT NULL,
+  "howToApply" TEXT NOT NULL,
+  status TEXT DEFAULT 'draft',                          -- draft | active
+  "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Auto-update "updatedAt" on any row update (matches Prisma's @updatedAt behaviour)
+CREATE OR REPLACE FUNCTION update_vacancy_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW."updatedAt" = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS vacancy_updated_at ON "Vacancy";
+CREATE TRIGGER vacancy_updated_at
+BEFORE UPDATE ON "Vacancy"
+FOR EACH ROW
+EXECUTE FUNCTION update_vacancy_updated_at();

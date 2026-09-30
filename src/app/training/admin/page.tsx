@@ -10,7 +10,7 @@ import {
   LayoutDashboard, FileText, Users, BookOpen, Calendar, Award,
   BarChart3, Settings, LogOut, Check, X, Search, Plus, Trash2,
   ChevronDown, ShieldCheck, Clock, Download, ArrowLeft, Edit, AlertCircle,
-  History, Mail, Eye, KeyRound,
+  History, Mail, Eye, KeyRound, Briefcase,
 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +21,7 @@ import AssessmentGradebook from "@/components/academy/AssessmentGradebook";
 import UserManagementPanel from "@/components/academy/UserManagementPanel";
 import AuditLogViewer from "@/components/academy/AuditLogViewer";
 import CSVExportButtons from "@/components/academy/CSVExportButtons";
+import VacancyManagementPanel from "@/components/academy/VacancyManagementPanel";
 import ReportsCharts from "@/components/academy/ReportsCharts";
 
 type SessionUser = { id: string; email: string; name: string; role: string };
@@ -51,6 +52,7 @@ const navItems = [
   { id: "users", label: "Users & Permissions", icon: ShieldCheck },
   { id: "reports", label: "Reports", icon: BarChart3 },
   { id: "audit", label: "Audit Log", icon: History },
+  { id: "vacancies", label: "Vacancies", icon: Briefcase },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -645,6 +647,11 @@ export default function AdminPage() {
               </div>
               <AuditLogViewer />
             </div>
+          )}
+
+          {/* VACANCIES VIEW */}
+          {activeView === "vacancies" && (
+            <VacancyManagementPanel />
           )}
 
           {/* SETTINGS VIEW */}

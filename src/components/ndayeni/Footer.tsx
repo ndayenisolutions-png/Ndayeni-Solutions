@@ -12,6 +12,7 @@ const quickLinks = [
   { label: "Solutions", href: "#solutions" },
   { label: "Care Plans", href: "#care-plans" },
   { label: "About Us", href: "#about" },
+  { label: "Vacancies", href: "/vacancies" },
   { label: "FAQ", href: "#faq" },
   { label: "Contact", href: "#contact" },
 ];
@@ -208,6 +209,13 @@ export default function Footer() {
               className="text-text-muted hover:text-brand transition-colors text-xs"
             >
               Find us on Google
+            </a>
+            <a
+              href="/training/admin"
+              className="text-text-muted/60 hover:text-brand transition-colors text-xs"
+              title="Staff sign-in for the Student Management System"
+            >
+              Admin
             </a>
             <span className="text-text-muted/50 text-xs hidden sm:inline">
               Designed &amp; Developed by Ndayeni Solutions
