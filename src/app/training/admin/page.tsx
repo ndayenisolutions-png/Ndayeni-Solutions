@@ -330,7 +330,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-dark-deep flex">
       {/* Sidebar */}
-      <aside className={`fixed md:relative z-50 w-64 h-screen glass-strong border-r border-dark-border/30 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
+      <aside className={`fixed md:sticky md:top-0 md:self-start z-50 w-64 h-screen glass-strong border-r border-dark-border/30 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
         <div className="p-4 border-b border-dark-border/30">
           <Link href="/training" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-brand-light flex items-center justify-center"><span className="text-dark-deep font-bold text-sm">N</span></div>
