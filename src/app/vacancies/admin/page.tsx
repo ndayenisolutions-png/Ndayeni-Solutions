@@ -134,14 +134,7 @@ export default function VacanciesAdminPage() {
               </div>
             </div>
 
-            <h1 className="text-warm-white font-bold text-xl mb-2">Sign in to Publish</h1>
-            <p className="text-text-muted text-sm mb-6">
-              Manage job postings shown on the public{" "}
-              <Link href="/vacancies" className="text-brand hover:text-brand-light underline underline-offset-2">
-                /vacancies
-              </Link>{" "}
-              page. Use the same credentials as the SMS admin.
-            </p>
+            <h1 className="text-warm-white font-bold text-xl mb-6">Sign in</h1>
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>

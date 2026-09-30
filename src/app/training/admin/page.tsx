@@ -291,8 +291,7 @@ export default function AdminPage() {
               </div>
               <div><div className="text-warm-white font-semibold text-sm">Digital Academy SMS</div><div className="text-text-muted text-[10px]">Ndayeni Solutions Pty Ltd</div></div>
             </div>
-            <h1 className="text-warm-white font-bold text-xl mb-2">Sign In</h1>
-            <p className="text-text-muted text-sm mb-6">Student Management System — Admin Access</p>
+            <h1 className="text-warm-white font-bold text-xl mb-6">Sign in</h1>
             <form onSubmit={handleLogin} className="space-y-4">
               <div><Label className="text-text-muted text-xs mb-1.5 block">Email</Label><Input type="email" value={loginForm.email} onChange={e => setLoginForm({ ...loginForm, email: e.target.value })} placeholder="you@ndayenisolutions.co.za" required className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11" /></div>
               <div><Label className="text-text-muted text-xs mb-1.5 block">Password</Label><Input type="password" value={loginForm.password} onChange={e => setLoginForm({ ...loginForm, password: e.target.value })} placeholder="••••••••" required className="bg-dark-deep/60 border-dark-border/50 text-warm-white h-11" /></div>

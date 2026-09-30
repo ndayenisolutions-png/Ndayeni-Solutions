@@ -18,7 +18,7 @@ const navLinks = [
 
 const vacanciesDropdownLinks = [
   { label: "View Vacancies", href: "/vacancies", desc: "Public careers page" },
-  { label: "Publish", href: "/vacancies/admin", desc: "Admin sign-in to manage postings" },
+  { label: "Publish", href: "/vacancies/admin", desc: "Sign in" },
 ];
 
 const servicesDropdownLinks = [
@@ -35,7 +35,7 @@ const servicesDropdownLinks = [
 
 const trainingLinks = [
   { label: "Courses", href: "/training", desc: "View courses & modules" },
-  { label: "Admin", href: "/training/admin", desc: "Sign in to manage students" },
+  { label: "Admin", href: "/training/admin", desc: "Sign in" },
 ];
 
 export default function Navbar() {
