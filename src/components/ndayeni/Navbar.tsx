@@ -15,8 +15,11 @@ const navLinks = [
   { label: "Solutions", href: "#solutions" },
   { label: "About", href: "#about" },
   { label: "Contact", href: "#contact" },
-  { label: "View Vacancies", href: "/vacancies" },
-  { label: "Publish", href: "/vacancies/admin" },
+];
+
+const vacanciesDropdownLinks = [
+  { label: "View Vacancies", href: "/vacancies", desc: "Public careers page" },
+  { label: "Publish", href: "/vacancies/admin", desc: "Admin sign-in to manage postings" },
 ];
 
 const servicesDropdownLinks = [
@@ -39,9 +42,10 @@ const trainingLinks = [
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  // Both dropdowns start COLLAPSED on mobile — user expands by tapping the header.
+  // All three dropdowns start COLLAPSED on mobile — user expands by tapping the header.
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
   const [mobileTrainingOpen, setMobileTrainingOpen] = useState(false);
+  const [mobileVacanciesOpen, setMobileVacanciesOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -74,6 +78,7 @@ export default function Navbar() {
     setIsMobileOpen(false);
     setMobileServicesOpen(false);
     setMobileTrainingOpen(false);
+    setMobileVacanciesOpen(false);
   }, []);
 
   // Close menu on orientation change or resize to desktop
@@ -247,6 +252,30 @@ export default function Navbar() {
             </div>
           </div>
 
+          {/* Vacancies Dropdown (desktop, hover-triggered) — view public page + admin sign-in */}
+          <div className="relative group/vacancies">
+            <button className="flex items-center gap-1 text-warm-white/70 hover:text-brand transition-colors duration-300 text-sm font-medium tracking-wide">
+              Vacancies
+              <ChevronDown className="w-3.5 h-3.5 group-hover/vacancies:rotate-180 transition-transform duration-300" />
+              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover/vacancies:w-full transition-all duration-300" />
+            </button>
+            {/* Dropdown panel */}
+            <div className="absolute top-full right-0 mt-2 w-60 opacity-0 invisible group-hover/vacancies:opacity-100 group-hover/vacancies:visible transition-all duration-300 z-50">
+              <div className="glass-strong rounded-xl border border-brand/15 shadow-2xl shadow-black/40 overflow-hidden">
+                {vacanciesDropdownLinks.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    className="flex flex-col gap-0.5 px-4 py-3 hover:bg-brand/10 transition-colors duration-200 border-b border-dark-border/20 last:border-0"
+                  >
+                    <span className="text-warm-white font-medium text-sm">{link.label}</span>
+                    <span className="text-text-muted text-xs">{link.desc}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+
         </nav>
 
         {/* Mobile Toggle */}
@@ -369,6 +398,43 @@ export default function Navbar() {
               {mobileTrainingOpen && (
                 <div id="mobile-training-section" className="pb-2">
                   {trainingLinks.map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      onClick={() => closeMobileMenu()}
+                      className="flex flex-col py-3 px-3 text-warm-white/80 hover:text-brand active:text-brand active:bg-brand/10 transition-colors duration-200 rounded-lg min-h-[48px] justify-center"
+                      style={{
+                        WebkitTapHighlightColor: "transparent",
+                        touchAction: "manipulation",
+                      }}
+                    >
+                      <span className="text-base font-medium">{link.label}</span>
+                      <span className="text-text-muted text-xs">{link.desc}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Vacancies accordion — COLLAPSED BY DEFAULT, tap header to expand */}
+            <div className="border-b border-dark-border/20">
+              <button
+                type="button"
+                onClick={() => setMobileVacanciesOpen((v) => !v)}
+                aria-expanded={mobileVacanciesOpen}
+                aria-controls="mobile-vacancies-section"
+                className="w-full flex items-center justify-between text-warm-white/80 hover:text-brand active:text-brand transition-colors duration-200 py-4 px-3 text-lg font-medium tracking-wide min-h-[48px] rounded-lg"
+                style={{
+                  WebkitTapHighlightColor: "transparent",
+                  touchAction: "manipulation",
+                }}
+              >
+                <span>Vacancies</span>
+                <ChevronDown className={`w-5 h-5 text-text-muted transition-transform duration-300 ${mobileVacanciesOpen ? "rotate-180" : ""}`} />
+              </button>
+              {mobileVacanciesOpen && (
+                <div id="mobile-vacancies-section" className="pb-2">
+                  {vacanciesDropdownLinks.map((link) => (
                     <a
                       key={link.label}
                       href={link.href}

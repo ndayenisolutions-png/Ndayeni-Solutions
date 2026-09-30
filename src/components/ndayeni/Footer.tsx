@@ -12,7 +12,7 @@ const quickLinks = [
   { label: "Solutions", href: "#solutions" },
   { label: "Care Plans", href: "#care-plans" },
   { label: "About Us", href: "#about" },
-  { label: "View Vacancies", href: "/vacancies" },
+  { label: "Vacancies", href: "/vacancies" },
   { label: "FAQ", href: "#faq" },
   { label: "Contact", href: "#contact" },
 ];
