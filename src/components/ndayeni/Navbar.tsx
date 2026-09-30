@@ -12,7 +12,6 @@ if (typeof window !== "undefined") {
 
 const navLinks = [
   { label: "Home", href: "#home" },
-  { label: "Solutions", href: "#solutions" },
   { label: "About", href: "#about" },
   { label: "Contact", href: "#contact" },
 ];
