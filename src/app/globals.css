@@ -218,6 +218,26 @@
   }
 }
 
+/* ─── Lazy-load below-the-fold sections ───
+ *
+ * content-visibility: auto tells the browser to SKIP rendering + image loading
+ * for elements that are off-screen. This is the #1 fix for iPhone performance —
+ * instead of loading all 11 section background images (3.4MB) simultaneously,
+ * only the above-the-fold images load on first paint. Below-the-fold images load
+ * as the user scrolls to each section.
+ *
+ * Supported in: iOS Safari 17+ (Sep 2023), Chrome 85+, Firefox 125+.
+ * Older browsers: images load eagerly (same as before — no regression).
+ *
+ * contain-intrinsic-size: reserves 800px of space so there's no layout shift
+ * when the section renders. The `auto` keyword remembers the real height
+ * after first render for subsequent scrolls.
+ */
+.lazy-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
+}
+
 /* 3D Card Transform */
 .card-3d {
   transform-style: preserve-3d;
