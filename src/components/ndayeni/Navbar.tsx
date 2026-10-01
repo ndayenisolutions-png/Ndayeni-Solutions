@@ -200,11 +200,11 @@ export default function Navbar() {
           <div className="relative group/services">
             <button className="flex items-center gap-1 text-warm-white/70 hover:text-brand transition-colors duration-300 text-sm font-medium tracking-wide">
               Services
-              <ChevronDown className="w-3.5 h-3.5 group-hover/services:rotate-180 transition-transform duration-300" />
-              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover/services:w-full transition-all duration-300" />
+              <ChevronDown className="w-3.5 h-3.5 group-hover/services:rotate-180 group-focus-within/services:rotate-180 transition-transform duration-300" />
+              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover/services:w-full group-focus-within/services:w-full transition-all duration-300" />
             </button>
-            {/* Dropdown panel */}
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 opacity-0 invisible group-hover/services:opacity-100 group-hover/services:visible transition-all duration-300 z-50">
+            {/* Dropdown panel — opens on hover (desktop) OR focus-within (tablet tap) */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 opacity-0 invisible group-hover/services:opacity-100 group-hover/services:visible group-focus-within/services:opacity-100 group-focus-within/services:visible transition-all duration-300 z-50">
               <div className="glass-strong rounded-xl border border-brand/15 shadow-2xl shadow-black/40 overflow-hidden max-h-[80vh] overflow-y-auto">
                 <a
                   href="/services"
@@ -227,15 +227,15 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Training Dropdown (desktop, hover-triggered) */}
+          {/* Training Dropdown (desktop, hover + focus-within for tablet) */}
           <div className="relative group/training">
             <button className="flex items-center gap-1 text-warm-white/70 hover:text-brand transition-colors duration-300 text-sm font-medium tracking-wide">
               Training
-              <ChevronDown className="w-3.5 h-3.5 group-hover/training:rotate-180 transition-transform duration-300" />
-              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover/training:w-full transition-all duration-300" />
+              <ChevronDown className="w-3.5 h-3.5 group-hover/training:rotate-180 group-focus-within/training:rotate-180 transition-transform duration-300" />
+              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover/training:w-full group-focus-within/training:w-full transition-all duration-300" />
             </button>
             {/* Dropdown panel */}
-            <div className="absolute top-full right-0 mt-2 w-56 opacity-0 invisible group-hover/training:opacity-100 group-hover/training:visible transition-all duration-300 z-50">
+            <div className="absolute top-full right-0 mt-2 w-56 opacity-0 invisible group-hover/training:opacity-100 group-hover/training:visible group-focus-within/training:opacity-100 group-focus-within/training:visible transition-all duration-300 z-50">
               <div className="glass-strong rounded-xl border border-brand/15 shadow-2xl shadow-black/40 overflow-hidden">
                 {trainingLinks.map((link) => (
                   <a
@@ -251,15 +251,15 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Vacancies Dropdown (desktop, hover-triggered) — view public page + admin sign-in */}
+          {/* Vacancies Dropdown (desktop, hover + focus-within for tablet) */}
           <div className="relative group/vacancies">
             <button className="flex items-center gap-1 text-warm-white/70 hover:text-brand transition-colors duration-300 text-sm font-medium tracking-wide">
               Vacancies
-              <ChevronDown className="w-3.5 h-3.5 group-hover/vacancies:rotate-180 transition-transform duration-300" />
-              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover/vacancies:w-full transition-all duration-300" />
+              <ChevronDown className="w-3.5 h-3.5 group-hover/vacancies:rotate-180 group-focus-within/vacancies:rotate-180 transition-transform duration-300" />
+              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-brand to-brand-light group-hover/vacancies:w-full group-focus-within/vacancies:w-full transition-all duration-300" />
             </button>
             {/* Dropdown panel */}
-            <div className="absolute top-full right-0 mt-2 w-60 opacity-0 invisible group-hover/vacancies:opacity-100 group-hover/vacancies:visible transition-all duration-300 z-50">
+            <div className="absolute top-full right-0 mt-2 w-60 opacity-0 invisible group-hover/vacancies:opacity-100 group-hover/vacancies:visible group-focus-within/vacancies:opacity-100 group-focus-within/vacancies:visible transition-all duration-300 z-50">
               <div className="glass-strong rounded-xl border border-brand/15 shadow-2xl shadow-black/40 overflow-hidden">
                 {vacanciesDropdownLinks.map((link) => (
                   <a
