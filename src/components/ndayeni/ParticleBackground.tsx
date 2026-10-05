@@ -54,9 +54,9 @@ export default function ParticleBackground() {
     let animationId = 0;
     let running = true;
 
-    // Particle count: 35 on desktop, 20 on tablet
-    const particleCount = window.innerWidth < 1024 ? 20 : 35;
-    const connectionDistance = 130;
+    // Particle count: 55 on desktop, 30 on tablet (was 35/20 — user requested more)
+    const particleCount = window.innerWidth < 1024 ? 30 : 55;
+    const connectionDistance = 160;
     const particles: Particle[] = [];
 
     function resize() {
@@ -81,7 +81,7 @@ export default function ParticleBackground() {
           y: Math.random() * height,
           vx: (Math.random() - 0.5) * 0.25,
           vy: (Math.random() - 0.5) * 0.25,
-          radius: Math.random() * 1.5 + 0.8,
+          radius: Math.random() * 1.8 + 1.0,
           color: COLORS[Math.floor(Math.random() * COLORS.length)],
         });
       }
@@ -120,7 +120,7 @@ export default function ParticleBackground() {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < connectionDistance) {
-            const opacity = (1 - dist / connectionDistance) * 0.15;
+            const opacity = (1 - dist / connectionDistance) * 0.2;
             ctxEl.beginPath();
             ctxEl.moveTo(particles[i].x, particles[i].y);
             ctxEl.lineTo(particles[j].x, particles[j].y);
