@@ -1,5 +1,14 @@
 // Welcome letter PDF generator for Ndayeni Solutions Digital Academy SMS.
 // Uses pdfkit to produce a real, downloadable A4 PDF for newly enrolled students.
+//
+// FORMATTING SPEC (applied per user request):
+//   Body text:       Helvetica 11pt (within the 11-12pt range)
+//   Headings:        Helvetica-Bold 14pt (within the 14-16pt range)
+//   Institution name: Helvetica-Bold 18pt (slightly larger than headings)
+//   Fine print:      Helvetica 9pt (within the 9-10pt range)
+//   Line spacing:    ~1.43 (lineGap=3 on 11pt → 15.76pt total — within 1.15-1.5 range)
+//   Paragraph gap:   1 blank line (moveDown(1))
+//   Margins:         72pt ≈ 2.54cm (≈ 2.5cm on all sides)
 
 import PDFDocument from "pdfkit";
 
@@ -25,12 +34,22 @@ const BODY_COLOR = "#0f172a";
 const GRAY = "#64748b";
 const RULE_COLOR = "#cbd5e1";
 
-// Line gap for 1.4 line spacing on 11pt body text.
-// Default Helvetica line height ≈ 11 * 1.16 ≈ 12.76pt; we want 11 * 1.4 = 15.4pt.
+// ─── Typography constants (per user spec) ───
+const FONT_BODY = "Helvetica";
+const FONT_BOLD = "Helvetica-Bold";
+const SIZE_INSTITUTION = 18;   // slightly larger than headings
+const SIZE_HEADING = 14;      // 14-16pt range
+const SIZE_BODY = 11;         // 11-12pt range
+const SIZE_FINE_PRINT = 9;    // 9-10pt range
+
+// Line gap for ~1.43 line spacing on 11pt body text.
+// Default Helvetica line height ≈ 11 * 1.16 ≈ 12.76pt; with lineGap=3 → 15.76pt.
+// 15.76 / 11 = 1.43 — within the 1.15-1.5 range.
 const BODY_LINE_GAP = 3;
 const BULLET_LINE_GAP = 2;
 
-const MARGIN = 50;
+// Margins: 72pt ≈ 2.54cm ≈ 2.5cm on all sides.
+const MARGIN = 72;
 
 /**
  * Format a Date as a long-form South African English date,
@@ -98,20 +117,20 @@ export async function generateWelcomeLetterPdf(
         ? formatLongDate(student.enrolledAt)
         : "the next intake";
 
-  // ─── Letterhead ───
+  // ─── Letterhead (institution name — 18pt bold, slightly larger than headings) ───
   doc
-    .font("Helvetica-Bold")
-    .fontSize(22)
+    .font(FONT_BOLD)
+    .fontSize(SIZE_INSTITUTION)
     .fillColor(BRAND_NAVY)
     .text("NDAYENI SOLUTIONS DIGITAL ACADEMY", {
       align: "center",
       width: contentWidth,
     });
 
-  // ─── Subheading ───
+  // ─── Subheading (11pt, gray) ───
   doc
-    .font("Helvetica")
-    .fontSize(11)
+    .font(FONT_BODY)
+    .fontSize(SIZE_BODY)
     .fillColor(GRAY)
     .text("IT Training · Software · Web Design · CCTV · Networking", {
       align: "center",
@@ -132,17 +151,18 @@ export async function generateWelcomeLetterPdf(
     .stroke();
   doc.moveDown(1);
 
-  // ─── Date (right-aligned) ───
+  // ─── Date (right-aligned, 11pt) ───
   doc
-    .font("Helvetica")
-    .fontSize(11)
+    .font(FONT_BODY)
+    .fontSize(SIZE_BODY)
     .fillColor(BODY_COLOR)
     .text(today, { align: "right", width: contentWidth });
 
-  doc.moveDown(0.5);
+  // Blank line between paragraphs
+  doc.moveDown(1);
 
-  // ─── Student block (left-aligned) ───
-  doc.font("Helvetica").fontSize(11).fillColor(BODY_COLOR);
+  // ─── Student block (left-aligned, 11pt) ───
+  doc.font(FONT_BODY).fontSize(SIZE_BODY).fillColor(BODY_COLOR);
   doc.text(student.fullName, { width: contentWidth });
   if (student.studentNumber) {
     doc.text(`Student No: ${student.studentNumber}`, { width: contentWidth });
@@ -153,32 +173,34 @@ export async function generateWelcomeLetterPdf(
     doc.text(student.address, { width: contentWidth });
   }
 
-  doc.moveDown(0.5);
+  // Blank line between paragraphs
+  doc.moveDown(1);
 
   // ─── Greeting ───
   doc.text(`Dear ${firstName},`, { width: contentWidth });
-  doc.moveDown(0.5);
+  doc.moveDown(1);
 
   doc.text("Welcome to Ndayeni Solutions Digital Academy!", {
     width: contentWidth,
     lineGap: BODY_LINE_GAP,
   });
-  doc.moveDown(0.5);
+  doc.moveDown(1);
 
   doc.text(
     `We are delighted to confirm your enrolment in the ${student.program} programme. Your journey with us begins on ${startDateText}, and we are committed to walking every step of it alongside you — from your first day of class to the day you receive your certificate.`,
     { width: contentWidth, lineGap: BODY_LINE_GAP }
   );
-  doc.moveDown(0.5);
+  doc.moveDown(1);
 
-  // ─── Section heading helper ───
+  // ─── Section heading helper (14pt bold, brand navy) ───
   const section = (heading: string): void => {
     doc
-      .font("Helvetica-Bold")
+      .font(FONT_BOLD)
+      .fontSize(SIZE_HEADING)
       .fillColor(BRAND_NAVY)
       .text(heading, { width: contentWidth })
       .moveDown(0.3);
-    doc.font("Helvetica").fillColor(BODY_COLOR);
+    doc.font(FONT_BODY).fontSize(SIZE_BODY).fillColor(BODY_COLOR);
   };
 
   const bullet = (text: string): void => {
@@ -191,7 +213,7 @@ export async function generateWelcomeLetterPdf(
   bullet(`Mode of delivery: ${modeText}`);
   bullet(`Enrolment date: ${enrolledAtText}`);
   bullet(`Expected completion: ${expectedCompletionText}`);
-  doc.moveDown(0.5);
+  doc.moveDown(1);
 
   // ─── WHAT TO EXPECT ───
   section("WHAT TO EXPECT");
@@ -200,7 +222,7 @@ export async function generateWelcomeLetterPdf(
   bullet("Continuous assessment with feedback");
   bullet("A verifiable digital certificate on successful completion");
   bullet("Access to our support team during business hours");
-  doc.moveDown(0.5);
+  doc.moveDown(1);
 
   // ─── WHAT TO BRING ON YOUR FIRST DAY ───
   section("WHAT TO BRING ON YOUR FIRST DAY");
@@ -208,7 +230,7 @@ export async function generateWelcomeLetterPdf(
   bullet("A notebook and pen");
   bullet("A laptop (if you have one — let us know if you need to borrow one)");
   bullet("Proof of payment or your bursary letter (if applicable)");
-  doc.moveDown(0.5);
+  doc.moveDown(1);
 
   // ─── CONTACT DETAILS ───
   section("CONTACT DETAILS");
@@ -219,38 +241,36 @@ export async function generateWelcomeLetterPdf(
   bullet("Phone: 083 800 6989");
   bullet("Email: info@ndayenisolutions.co.za");
   bullet("Address: Ndayeni Solutions, South Africa");
-  doc.moveDown(0.5);
+  doc.moveDown(1);
 
   // ─── Closing ───
   doc.text("We look forward to welcoming you in person.", {
     width: contentWidth,
     lineGap: BODY_LINE_GAP,
   });
-  doc.moveDown(0.5);
+  doc.moveDown(1);
   doc.text("Warm regards,", { width: contentWidth });
 
   // Signature space — 30pt gap
   doc.y += 30;
 
   doc
-    .font("Helvetica-Bold")
+    .font(FONT_BOLD)
+    .fontSize(SIZE_BODY)
     .fillColor(BODY_COLOR)
     .text("Nhlakanipho Ntshangase", { width: contentWidth });
   doc
-    .font("Helvetica")
+    .font(FONT_BODY)
+    .fontSize(SIZE_BODY)
     .text("Founder & CEO", { width: contentWidth })
     .text("Ndayeni Solutions Digital Academy", { width: contentWidth });
 
-  // ─── Footer (centered, 9pt, gray) ───
-  // We let the footer flow naturally after the signatory block — pinning it to
-  // an absolute page-bottom position caused PDFKit to spill it onto a second
-  // page when the body content fills most of page 1. Flowing it after the
-  // signature keeps everything on a single page for typical letters.
-  doc.moveDown(0.5);
+  // ─── Footer / fine print (9pt, gray, centered) ───
+  doc.moveDown(1);
   doc
     .fillColor(GRAY)
-    .fontSize(9)
-    .font("Helvetica");
+    .fontSize(SIZE_FINE_PRINT)
+    .font(FONT_BODY);
   doc.text(
     "Ndayeni Solutions Digital Academy · POPIA Compliant · https://ndayenisolutions.co.za",
     { align: "center", width: contentWidth }
