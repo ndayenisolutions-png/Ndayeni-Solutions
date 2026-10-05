@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import ParticleBackground from "./ParticleBackground";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -110,6 +111,8 @@ export default function Hero() {
       ref={containerRef}
       className="relative min-h-screen flex items-center overflow-hidden bg-dark-deep"
     >
+      {/* Particle network background — lightweight Canvas 2D (not three.js) */}
+      <ParticleBackground />
       {/* Subtle radial vignette to deepen the edges (CSS, not an image) */}
       <div
         aria-hidden="true"
